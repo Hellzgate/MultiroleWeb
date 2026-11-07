@@ -36,15 +36,15 @@ TOKEN_FORM = """<details><summary>토큰으로 들어가기(비상용)</summary>
 LOGIN_HTML = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <title>Multirole Web</title>""" + STYLE + """
 <form method="post" action="/api/login"><h1>Multirole Web 접속</h1>
-<p class="sub">NAS 관리자 계정으로 로그인하세요.</p>
+<p class="sub">패널 관리자 계정으로 로그인하세요.</p>
 <input name="id" type="text" placeholder="아이디" autofocus autocomplete="username">
 <input name="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
 <button type="submit">로그인</button><p><!--ERR--></p></form>""" + TOKEN_FORM + """</html>"""
 
 SETUP_HTML = """<!doctype html><html lang="ko"><meta charset="utf-8">
-<title>Multirole Web — 관리자 계정 만들기</title>""" + STYLE + """
-<form method="post" action="/api/setup"><h1>관리자 계정 만들기</h1>
-<p class="sub">처음 한 번만 설정합니다. 이후 이 계정으로 로그인합니다.<br>
+<title>Multirole Web — 패널 관리자 계정 만들기</title>""" + STYLE + """
+<form method="post" action="/api/setup"><h1>패널 관리자 계정 만들기</h1>
+<p class="sub">처음 한 번만 설정하고, 이후 이 계정으로 로그인합니다.<br>
 비밀번호는 <b>해시로만</b> 저장되며, 아래 <b>다시 입력</b>과 같아야 합니다.</p>
 <input name="id" type="text" placeholder="아이디 (예: admin)" autofocus autocomplete="username">
 <input name="pw" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
