@@ -89,6 +89,7 @@ class MercuryFront(object):
         self.sock = None
         self._stop = False
         self.rooms = {}                 # name(lower) -> room id (우리가 만든 방)
+        self._room_at = {}              # name(lower) -> 생성 시각(초)
         self._index = {}                # 이름 → 번호 (7922 실시간 목록, 2초 캐시)
         self._index_at = 0.0
         self.connections = 0
@@ -158,25 +159,42 @@ class MercuryFront(object):
             for key in keys:
                 if key:
                     index.setdefault(key, rid)
-        # 캐시는 살아있는 방만 남긴다(죽은 방 번호로 JOIN 하면 'Room not found')
+        # 캐시는 살아있는 방만 남긴다(죽은 방 번호로 JOIN 하면 'Room not found').
+        # 단 **방금 만든 방**은 목록 반영(2초 직렬화) 전이라 지우면 안 된다.
         alive = set(index.values())
+        now2 = time.time()
         for key in list(self.rooms):
-            if self.rooms[key] not in alive:
-                del self.rooms[key]
+            if self.rooms[key] in alive:
+                continue
+            if now2 - self._room_at.get(key, 0.0) < 20.0:
+                continue                      # 최근 생성분 유지
+            del self.rooms[key]
+            self._room_at.pop(key, None)
         self._index = index
         self._index_at = now
         return index
 
     def _find_room(self, name):
+        """이름 → 방 번호.
+
+        7922 목록은 Multirole 이 2초마다 직렬화하므로 **방금 만든 방이 아직 없을 수 있다**.
+        그 창(15초) 안에서는 우리가 받은 번호를 그대로 쓰고, 죽은 번호면 서버가
+        ROOM_NOT_FOUND 를 주므로 그때 새로 만든다(중복 개설 방지).
+        """
         key = name.strip().lower()
         if not key:
             return None
         index = self._live_index()
-        if index:                              # 실시간 목록이 있으면 그것만 신뢰
+        if index:
             rid = index.get(key)
             if rid:
                 self.rooms[key] = rid
-            return rid
+                self._room_at.setdefault(key, 0.0)
+                return rid
+            fresh = self._room_at.get(key, 0.0)
+            if key in self.rooms and (time.time() - fresh) < 15.0:
+                return self.rooms[key]          # 방금 만든 방(목록 반영 대기)
+            return None
         return self.rooms.get(key)             # 7922 를 못 읽을 때만 캐시 사용
 
     # -- accept / per connection ------------------------------------------ #
@@ -233,10 +251,9 @@ class MercuryFront(object):
                     if typ == 0x11 and len(fr) >= 7:      # STOC_CREATE_GAME → room id
                         rid = struct.unpack("<I", fr[3:7])[0]
                         name = st.get("pending_name")
-                        if name:
-                            self.rooms[name.strip().lower()] = rid
-                        else:
-                            self.rooms[(self.st.front_autoroom or "lobby").strip().lower()] = rid
+                        key = (name or self.st.front_autoroom or "lobby").strip().lower()
+                        self.rooms[key] = rid
+                        self._room_at[key] = time.time()
                         self.created += 1
                         self.log("[front] %s room created '%s' id=%d"
                                  % (tag, name or self.st.front_autoroom, rid))
