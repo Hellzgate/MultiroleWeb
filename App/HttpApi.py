@@ -399,6 +399,39 @@ class Handler(BaseHTTPRequestHandler):
                                        status, decks, rooms, err))
             return
 
+        if path == "/api/cards":
+            cards = getattr(self.app, "cards", None)
+            if cards is None:
+                self._json({"items": [], "error": "카드 인덱스가 없습니다"}, 503)
+                return
+            q = (qs.get("q") or [""])[0]
+            try:
+                limit = int((qs.get("limit") or ["50"])[0])
+            except ValueError:
+                limit = 50
+            self._json({"items": cards.search(q, max(1, min(limit, 200))), "files": cards.files()})
+            return
+
+        if path == "/api/cards/changes":
+            cards = getattr(self.app, "cards", None)
+            self._json(cards.changes() if cards else {"counts": None})
+            return
+
+        if path.startswith("/api/cards/"):
+            cards = getattr(self.app, "cards", None)
+            tail = path[len("/api/cards/"):]
+            try:
+                cid = int(tail)
+            except ValueError:
+                self._json({"error": "카드 ID 가 아닙니다"}, 400)
+                return
+            rec = cards.get(cid) if cards else None
+            if not rec:
+                self._json({"error": "카드를 찾을 수 없습니다", "id": cid}, 404)
+                return
+            self._json(rec)
+            return
+
         if path == "/api/auth/backups":
             ab = getattr(self.app, "authbackup", None)
             if ab is None:
@@ -570,6 +603,16 @@ class Handler(BaseHTTPRequestHandler):
             self.app.sup.want = False
             threading.Thread(target=lambda: self.app.sup.stop(graceful=True), daemon=True).start()
             self._json({"ok": True})
+            return
+
+        if path == "/api/cards/snapshot":
+            cards = getattr(self.app, "cards", None)
+            if cards is None:
+                self._json({"error": "카드 인덱스가 없습니다"}, 503)
+                return
+            res = cards.snapshot("manual")
+            self._log("cards snapshot: %s" % (res.get("result", {}).get("counts"),))
+            self._json(res)
             return
 
         if path == "/api/auth/backup":
@@ -755,6 +798,22 @@ class Handler(BaseHTTPRequestHandler):
         if name:
             payload["repo"] = name
             payload["status"] = 200
+
+        # 카드 DB(databases) 가 갱신되면 스냅샷을 떠서 "무엇이 바뀌었는지" 남긴다
+        cards = getattr(self.app, "cards", None)
+        if cards is not None:
+            try:
+                snap = cards.snapshot("sync" if not name else ("sync:%s" % name))
+                if snap.get("ok"):
+                    cnt = snap["result"]["counts"]
+                    payload["cards"] = cnt
+                    self._log("cards snapshot after sync: added=%d changed=%d removed=%d"
+                              % (cnt["added"], cnt["changed"], cnt["removed"]))
+                else:
+                    self._log("cards snapshot failed: %s" % snap.get("error"))
+            except Exception as exc:      # noqa: BLE001
+                self._log("cards snapshot error: %s" % exc)
+
         self._json(payload)
 
     # -- PUT -------------------------------------------------------------- #

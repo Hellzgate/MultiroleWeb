@@ -12,6 +12,7 @@ import time
 from . import VERSION
 from .AccessLog import AccessLog
 from .AuthBackup import AuthBackup
+from .Cards import CardIndex
 from .AuthStore import AuthStore
 from .Context import CTX
 from .DuelProxy import DuelProxy
@@ -35,6 +36,7 @@ class App(object):
                                 target=st.proxy2_target)
         self.access = AccessLog(st)
         self.authbackup = AuthBackup(st)
+        self.cards = CardIndex(st)
         self.front = MercuryFront(st, self.sup.log)
         self.front.access = self.access
         self.ghost = None

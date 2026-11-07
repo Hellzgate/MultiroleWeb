@@ -756,6 +756,56 @@ def selftest():
     except OSError as exc:
         check("http.forwarded-ip", False, str(exc))
 
+    # -- 카드 cdb 검색/변경 감지 ------------------------------------------ #
+    import sqlite3 as _sq
+
+    from .Cards import CardIndex
+
+    cdb_dir = os.path.join(tmp, "sync", "databases")
+    os.makedirs(cdb_dir, exist_ok=True)
+    db = os.path.join(cdb_dir, "cards.cdb")
+
+    def _mk_cdb(path, rows):
+        con = _sq.connect(path)
+        con.execute("CREATE TABLE IF NOT EXISTS datas(id INTEGER PRIMARY KEY, ot, alias, setcode,"
+                    " type, atk, def, level, race, attribute)")
+        con.execute("CREATE TABLE IF NOT EXISTS texts(id INTEGER PRIMARY KEY, name, desc,"
+                    " str1, str2, str3, str4, str5)")
+        for cid, name, desc, atk in rows:
+            con.execute("INSERT OR REPLACE INTO datas VALUES (?,0,0,0,1,?,0,4,2,0x20)", (cid, atk))
+            con.execute("INSERT OR REPLACE INTO texts VALUES (?,?,?,'','','','','')", (cid, name, desc))
+        con.commit()
+        con.close()
+
+    _mk_cdb(db, [(100, "Hello Dragon", "테스트용 카드", 2000),
+                 (200, "World Phoenix", "또 다른 카드", 3000)])
+
+    class _CSt(object):
+        base = tmp
+        auth_path = os.path.join(tmp, "auth.json")
+
+    ci = CardIndex(_CSt())
+    found = ci.search("hello", 10)
+    by_id = ci.get(100)
+    check("cards.search", len(found) == 1 and found[0]["id"] == 100
+          and by_id and by_id["name"] == "Hello Dragon" and by_id["atk"] == 2000,
+          str(found)[:160])
+
+    s1 = ci.snapshot("t1")
+    _mk_cdb(db, [(100, "Hello Dragon", "테스트용 카드", 2000),
+                 (200, "World Phoenix", "또 다른 카드", 3000),
+                 (300, "New Card", "갱신으로 추가됨", 1500)])
+    s2 = ci.snapshot("t2")
+    ch = ci.changes()
+    check("cards.snapshot-diff",
+          s1["result"]["first"] is True and s2["result"]["counts"]["added"] == 1
+          and s2["result"]["counts"]["total"] == 3 and ch["counts"]["added"] == 1,
+          json.dumps(s2["result"]["counts"]))
+
+    code, body = call("GET", "/api/cards?q=hello")
+    cd = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.cards", code == 200 and isinstance(cd.get("items"), list), body[:120].decode("utf-8", "replace"))
+
     code, body = call("GET", "/api/auth/backups")
     ab_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.auth-backups", code == 200 and isinstance(ab_body.get("items"), list),

@@ -7,13 +7,14 @@ MR.app = {
     document.querySelectorAll('nav button').forEach(function (b) {
       b.classList.toggle('active', b.dataset.tab === tab);
     });
-    ['config', 'status', 'logs', 'replays', 'bots'].forEach(function (t) {
+    ['config', 'status', 'logs', 'replays', 'bots', 'cards'].forEach(function (t) {
       MR.$('tab-' + t).classList.toggle('hidden', t !== tab);
     });
     if (tab === 'status') MR.statusPanel.load();
     if (tab === 'logs') { MR.logPanel.load(); MR.logPanel.start(); } else { MR.logPanel.stop(); }
     if (tab === 'replays') MR.replayPanel.load();
     if (tab === 'bots') MR.botPanel.load();
+    if (tab === 'cards') MR.cardPanel.load();
   },
 
   bind: function () {
@@ -25,6 +26,7 @@ MR.app = {
     MR.configForm.bind();
     MR.frontPanel.bind();
     MR.authPanel.bind();
+    MR.cardPanel.bind();
     MR.statusPanel.bind();
     MR.logPanel.bind();
     MR.replayPanel.bind();

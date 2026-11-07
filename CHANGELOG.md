@@ -1,3 +1,30 @@
+## v1.9.0 — 2026-11-07
+
+### 새 기능 — 카드 탭 (cdb 검색 + **저장소 갱신 반영 확인**)
+용도: `databases` 리포를 갱신한 뒤 **"이 카드가 실제로 cdb 에 들어왔나 / 값이 바뀌었나"** 를 확인한다.
+
+- **검색** (`App/Cards.py`, `GET /api/cards?q=`)
+  - 카드 **ID · 이름 · 효과 문구** 로 검색, 결과에 **출처 cdb 파일 + 그 파일의 mtime** 표시
+  - `databases/*.cdb` 15개를 읽기 전용(`mode=ro`)으로 읽어 메모리 인덱스 구축 → **25,050장 / 최초 로드 약 1초**, 이후 즉시
+  - 같은 ID 가 여러 cdb 에 있으면 **뒤 파일이 덮어씀**(official → unofficial/prerelease/커스텀 우선), 출처를 함께 보여줌
+- **상세** (`GET /api/cards/<id>`) — 종류(몬스터·효과·엑시즈·링크·융합…), 속성, 종족, ATK/DEF, 설명, `str1~5`, 출처 cdb + 갱신 시각
+- **갱신 확인 (핵심)** — 스냅샷 대비 **추가/변경/삭제**를 계산
+  - `POST /api/cards/snapshot` (수동) · **`/api/sync` 성공 후 자동** 스냅샷
+  - 변경 필드까지 표시(이름/타입/ATK/DEF/레벨/설명)
+  - `GET /api/cards/changes` · 카드 탭 상단 카드에 요약 + 목록(최대 20) + cdb 파일 mtime 표
+- UI: 새 탭 **카드** (`Web/js/CardPanel.js`) — 검색창 Enter/버튼, 결과 행 클릭 → 상세, [지금 스냅샷] [변경 내역 새로고침]
+  - 응답 경합 가드(`_seq`) — 탭 진입 시의 빈 검색이 **뒤늦게 도착해 새 결과를 덮어쓰던** 문제 수정
+
+### 정정
+- v1.8.2 배포 시 `App/__init__.py` 의 VERSION 문자열이 **1.8.1 로 남아 있었다**(패치 스크립트가 후반에서 중단).
+  이번에 **1.9.0** 으로 정리했고, `health` 표시도 일치한다.
+
+### 검증
+- `--selftest` **128/128** (추가: `cards.search` · `cards.snapshot-diff` · `http.cards`)
+- 컨테이너 실측: 로드 **25,050장** · `101403001` → `The Sun God's Poet - Helpoemer` (`prerelease-imph.cdb`, mtime 표시)
+  · 첫 스냅샷 `total 25050 / first true` · 두 번째 스냅샷 변화 0
+- `/api/health` = **1.9.0**
+
 ## v1.8.2 — 2026-11-07
 
 ### 새 기능 — HTTPS(DSM 역방향 프록시) 대응

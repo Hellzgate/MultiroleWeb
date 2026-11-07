@@ -28,6 +28,7 @@
   <button data-tab="logs">로그</button>
   <button data-tab="replays">리플레이</button>
   <button data-tab="bots" id="navBots">봇</button>
+  <button data-tab="cards">카드</button>
 </nav>
 
 <main>
@@ -177,6 +178,38 @@
     <div class="card"><table><thead><tr><th>파일</th><th>크기</th><th>시각</th><th></th></tr></thead>
       <tbody id="repBody"></tbody></table></div>
   </section>
+  <!-- 카드 -->
+  <section id="tab-cards" class="hidden">
+    <div class="toolbar">
+      <input type="text" id="cardQuery" placeholder="카드 ID · 이름 · 효과 문구" style="max-width:340px">
+      <button id="btnCardSearch" class="primary">검색</button>
+      <span class="muted" id="cardHint"></span>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h3>cdb 갱신 확인 <span class="muted" id="cardChangeSummary"></span></h3>
+      <p class="muted" style="margin:0 0 10px;line-height:1.7">
+        <code>databases</code> 저장소를 갱신하면 <b>자동으로 스냅샷</b>을 떠서 이전 상태와 비교합니다.
+        아래 목록이 <b>이번 갱신에서 추가·변경·삭제된 카드</b>입니다.
+      </p>
+      <div class="toolbar" style="margin:0 0 8px">
+        <button id="btnCardSnapshot" class="sm">지금 스냅샷(기준 갱신)</button>
+        <button id="btnCardChanges" class="sm">변경 내역 새로고침</button>
+      </div>
+      <div id="cardChanges" class="muted" style="line-height:1.8"></div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:#bcd7f7;font-size:13px">cdb 파일 목록</summary>
+        <table style="margin-top:8px"><thead><tr><th>파일</th><th>크기</th><th>갱신 시각</th></tr></thead>
+        <tbody id="cardFiles"></tbody></table>
+      </details>
+    </div>
+    <div class="card">
+      <h3>검색 결과 <span class="muted" id="cardCount"></span></h3>
+      <table><thead><tr><th>ID</th><th>이름</th><th>종류</th><th>Lv</th><th>ATK/DEF</th><th>출처 cdb</th><th>설명</th></tr></thead>
+      <tbody id="cardBody"></tbody></table>
+      <div id="cardDetail" class="muted" style="margin-top:10px"></div>
+    </div>
+  </section>
+
   <!-- 봇 -->
   <section id="tab-bots" class="hidden">
     <div class="toolbar">
@@ -268,6 +301,7 @@
 <script src="/js/ReplayPanel.js"></script>
 <script src="/js/BotPanel.js"></script>
 <script src="/js/AuthPanel.js"></script>
+<script src="/js/CardPanel.js"></script>
 <script src="/js/App.js"></script>
 </body>
 </html>
