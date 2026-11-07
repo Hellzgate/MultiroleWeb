@@ -109,6 +109,7 @@ class MercuryFront(object):
         self._ip_map = {}
         self._pseudo_used = set()
         self.access = None               # App 이 AccessLog 를 넣어준다
+        self._logwin = {}                # tag -> (count, key, window_start) 프레임 로그 억제용
 
     # -- lifecycle -------------------------------------------------------- #
     def start(self, port=None):
@@ -467,6 +468,27 @@ class MercuryFront(object):
         _close(upstream)
 
     def _log_frame(self, tag, arrow, fr):
+        # 같은 (방향, 타입, 길이) 프레임이 1초에 6회 넘게 오면 로그를 접는다.
+        # (CREATE_GAME 재전송 폭주 때 로그가 초당 수백 줄이 되어 방이 얼어붙던 문제)
+        key = (arrow, fr[2], len(fr))
+        st = self._logwin.get(tag)
+        now = time.time()
+        if not st or now - st[2] > 1.0:
+            if st and st[0] > 6:
+                self.log("[front] %s %s 로그 %d줄 생략" % (tag, arrow, st[0] - 6))
+            self._logwin[tag] = (0, key, now)
+            st = self._logwin[tag]
+        cnt, lastkey, t0 = st
+        if lastkey == key:
+            cnt += 1
+            self._logwin[tag] = (cnt, lastkey, t0)
+            if cnt > 6:
+                return
+        else:
+            self._logwin[tag] = (1, key, now)
+        self._log_frame_1(tag, arrow, fr)
+
+    def _log_frame_1(self, tag, arrow, fr):
         typ = fr[2]
         body = fr[3:]
         name = type_name(typ)
@@ -519,6 +541,18 @@ class MercuryFront(object):
                         continue
 
                     self._log_frame(tag, "->", fr)
+
+                    if typ in (0x11, 0x12):
+                        # 같은 프레임을 1.5초 안에 다시 보내면(클라이언트 자동 재전송) 무시
+                        sig = (typ, len(fr), fr[-8:])
+                        prev = st.get("dup_sig")
+                        if prev and prev[0] == sig and time.time() - prev[1] < 1.5:
+                            st["dup_drop"] = st.get("dup_drop", 0) + 1
+                            continue
+                        st["dup_sig"] = (sig, time.time())
+                        if st.get("dup_drop"):
+                            self.log("[front] %s 재전송 %d건 무시" % (tag, st["dup_drop"]))
+                            st["dup_drop"] = 0
 
                     if typ == 0x11:                        # CREATE_GAME(서버모드) → 방 이름(notes) 기억
                         try:

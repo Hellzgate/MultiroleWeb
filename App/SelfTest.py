@@ -663,6 +663,16 @@ def selftest():
     except OSError as exc:
         check("front.send-guard", False, str(exc))
 
+    # 로그는 큐로 넘기고 파일 IO 는 전용 스레드가 한다(네트워크 스레드가 디스크에 막히지 않게)
+    from .LogWriter import LogWriter
+
+    lw = LogWriter(st)
+    for i in range(50):
+        lw.write("selftest-log-%d" % i)
+    time.sleep(0.6)
+    check("log.async", any("selftest-log-49" in x for x in lw.tail(100)),
+          str(lw.tail(3))[:160])
+
     code, body = call("GET", "/api/access?tail=10")
     acc_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.access", code == 200 and isinstance(acc_body.get("items"), list),
