@@ -1,3 +1,21 @@
+## v1.8.1 — 2026-11-07
+
+### 수정 — 셀프테스트가 **라이브 config.json 을 덮어쓰던** 문제 (컨테이너 실행 시)
+- **사고**: 컨테이너에서 `webui.py --selftest` 를 돌리면 `Settings(base=tmp)` 여도
+  `MR_CONFIG=/multirole/config.json` 환경변수가 우선이라 **실제 설정 파일**을 대상으로 테스트했다.
+  결과: `concurrencyHint` 가 **4 → 9** 로 덮어써짐(백업 `config.json.bak-20261107-191448` 로 복원 완료,
+  손상본은 `config.json.bak-selftest-damage-<시각>` 로 보관).
+- **수정**: `_isolate(st, tmp)` 로 `base`·`config_path`·`config_persist`·`log_dir`·`log_path`·`auth_path`·`front_json` 을
+  **전부 임시 폴더로 강제**한다. 이제 컨테이너에서 돌려도 라이브 파일을 건드리지 않는다.
+- **추가 검사** `selftest.live-config-untouched`: 시작 시 라이브 config 의 SHA256 을 기록하고 마지막에 비교.
+  (Windows 처럼 라이브 파일이 없으면 자동 생략)
+
+### 검증
+- Windows 로컬: **123/123 PASS**
+- **컨테이너 안에서**: **124/124 PASS** (`selftest.live-config-untouched` 포함)
+- 실행 전/후 `config.json` SHA256 **동일**(`8fcda025…8b63`) → 라이브 파일 무변경 확인
+- → 이제 배포 직후 `docker exec multirole-web python3 webui.py --selftest` 로 **자동 검증** 가능
+
 ## v1.8.0 — 2026-11-07
 
 ### 새 기능 — 계정(auth.json) 자동 백업 (A: NAS 안 + B: PC 로 당겨오기)

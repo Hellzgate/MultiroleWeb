@@ -171,6 +171,18 @@ sudo docker compose up -d --build
 인증: `WEB_TOKEN` 을 설정하면 쿠키(`mr_auth`) 또는 `X-MR-Token` 헤더가 필요합니다.
 **비우면 인증 없음** — NAS 를 다른 사람이 쓰는 환경에서는 반드시 설정하세요.
 
+### 셀프테스트 (배포 검증)
+
+```sh
+# 호스트(Windows) 에서
+python webui.py --selftest
+
+# 배포한 컨테이너에서 (v1.8.1+, 라이브 설정을 건드리지 않는다)
+docker exec multirole-web python3 /dyxel/multirole/webui.py --selftest
+```
+- 설정/HTTP/프론트/유령정리/접근로그/계정백업까지 **124개 검사**
+- `selftest.live-config-untouched` 가 **라이브 config.json 이 그대로인지** 확인한다
+
 ## 7. 보안 체크리스트
 
 - [ ] `WEB_TOKEN` 변경 (기본값 그대로 두지 않기)

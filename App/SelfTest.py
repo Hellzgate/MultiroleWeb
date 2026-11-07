@@ -10,6 +10,7 @@
   · HTTP 401 · /api/ping · GET/PUT config · 422 · 로그 · 리플레이 다운로드(경로 탈출 차단) · start/stop/restart
 """
 
+import hashlib
 import json
 import os
 import socket as pysocket
@@ -82,6 +83,32 @@ def _make_fixture(tmp):
             f.write("-- lua\n")
 
 
+def _isolate(st, tmp):
+    """모든 경로를 임시 폴더로 강제한다.
+
+    ⚠ 컨테이너에서는 MR_CONFIG 등 환경변수 때문에 `Settings(base=tmp)` 만으로는
+      tmp 를 쓰지 않고 **라이브 config.json** 을 가리킨다(실제로 셀프테스트가
+      `concurrencyHint` 를 9 로 덮어쓴 사고가 있었다). 그래서 경로를 덮어쓴다.
+    """
+    st.base = tmp
+    st.config_path = os.path.join(tmp, "config.json")
+    st.config_persist = ""
+    st.log_dir = os.path.join(tmp, "logs")
+    st.log_path = os.path.join(st.log_dir, "multirole.log")
+    st.auth_path = os.path.join(tmp, "auth.json")
+    st.front_json = os.path.join(tmp, "front.json")
+    os.makedirs(st.log_dir, exist_ok=True)
+    return st
+
+
+def _file_hash(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
 def selftest():
     checks = []
 
@@ -96,6 +123,18 @@ def selftest():
         json.dump(sample, f, indent="\t")
 
     st = Settings(base=tmp)
+    # 라이브 config 지문(컨테이너에서 실행해도 손대지 않았는지 마지막에 확인)
+    def _under(path, base):
+        try:
+            return os.path.commonpath([os.path.realpath(path), os.path.realpath(base)]) == os.path.realpath(base)
+        except ValueError:
+            return False
+
+    _live = st.real_config()
+    _live_hash = None
+    if _live and os.path.isfile(_live) and not _under(_live, tmp):
+        _live_hash = _file_hash(_live)
+    _isolate(st, tmp)
     st.bin = sys.executable
     st.args = [
         "-c",
@@ -768,6 +807,11 @@ def selftest():
         check("front.conn-state", got == "01", "state=%s" % got)
     except OSError as exc:
         check("front.conn-state", str(exc).startswith("skip:"), str(exc))
+
+    # -- 라이브 설정 불변 확인 -------------------------------------------- #
+    if _live_hash:
+        check("selftest.live-config-untouched", _file_hash(_live) == _live_hash,
+              "라이브 config 가 변경되었습니다: %s" % _live)
 
     # -- report ---------------------------------------------------------- #
     from . import VERSION
