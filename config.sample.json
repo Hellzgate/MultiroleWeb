@@ -1,0 +1,133 @@
+{
+	"concurrencyHint": -1,
+	"lobbyListingPort": 7922,
+	"lobbyMaxConnections": 4,
+	"roomHostingPort": 7911,
+	"repos": [
+		{
+			"name": "scripts",
+			"remote": "https://github.com/ProjectIgnis/CardScripts",
+			"path": "./sync/scripts/",
+			"webhookPort": 34343,
+			"webhookToken": "<change_this>"
+		},
+		{
+			"name": "databases",
+			"remote": "https://github.com/ProjectIgnis/BabelCDB",
+			"path": "./sync/databases/",
+			"webhookPort": 62672,
+			"webhookToken": "<change_this>"
+		},
+		{
+			"name": "banlists",
+			"remote": "https://github.com/ProjectIgnis/LFLists",
+			"path": "./sync/banlists/",
+			"webhookPort": 49382,
+			"webhookToken": "<change_this>"
+		},
+		{
+			"name": "bin",
+			"remote": "https://github.com/ProjectIgnis/bin",
+			"path": "./sync/bin/",
+			"webhookPort": 43632,
+			"webhookToken": "<change_this>"
+		}
+	],
+	"banlistProvider": {
+		"observedRepos": [
+			"banlists"
+		],
+		"fileRegex": ".*\\.lflist\\.conf"
+	},
+	"coreProvider": {
+		"observedRepos": [
+			"bin"
+		],
+		"fileRegex": ".*libocgcore\\.so",
+		"tmpPath": "./tmp/",
+		"coreType": "hornet",
+		"loadPerRoom": true
+	},
+	"dataProvider": {
+		"observedRepos": [
+			"databases"
+		],
+		"fileRegex": ".*\\.cdb"
+	},
+	"logHandler": {
+		"serviceSinks": {
+			"gitRepo": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"multirole": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"banlistProvider": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"coreProvider": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"dataProvider": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"logHandler": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"replayManager": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"scriptProvider": {
+				"type": "stdout",
+				"properties": {}
+			},
+			"other": {
+				"type": "stdout",
+				"properties": {}
+			}
+		},
+		"ecSinks": {
+			"core": {
+				"type": "stderr",
+				"properties": {}
+			},
+			"official": {
+				"type": "stderr",
+				"properties": {}
+			},
+			"speed": {
+				"type": "stderr",
+				"properties": {}
+			},
+			"rush": {
+				"type": "stderr",
+				"properties": {}
+			},
+			"other": {
+				"type": "stderr",
+				"properties": {}
+			}
+		},
+		"roomLogging": {
+			"enabled": false,
+			"path": "./room-logs/"
+		}
+	},
+	"replayManager": {
+		"save": true,
+		"path": "./replays/"
+	},
+	"scriptProvider": {
+		"observedRepos": [
+			"scripts"
+		],
+		"fileRegex": ".*\\.lua"
+	}
+}

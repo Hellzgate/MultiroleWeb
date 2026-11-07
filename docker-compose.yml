@@ -1,0 +1,30 @@
+services:
+  multirole:
+    build:
+      context: .
+      dockerfile: Dockerfile          # apk 실패 시 Dockerfile.pystage 로 변경
+    image: multirole-web:1.0.0
+    container_name: multirole
+    restart: unless-stopped
+    stop_grace_period: 25s            # webui 가 자식에게 SIGTERM -> 최대 MR_STOP_GRACE 초 대기
+    ports:
+      - "7911:7911"                   # 룸 호스팅 (플레이어 접속)
+      - "7922:7922"                   # 로비 (방 목록)
+      - "8080:8080"                   # 웹 관리 화면 (외부 노출 비권장)
+    environment:
+      TZ: Asia/Seoul
+      WEB_TOKEN: "CHANGE_ME_please"   # ★ 반드시 변경 (비우면 인증 없음)
+      WEB_PORT: "8080"
+      MR_STOP_GRACE: "10"
+      MR_RESTART_DELAY: "3"
+      MR_LOG_MAX: "10485760"          # 10MB 회전
+      MR_LOG_KEEP: "3"
+    volumes:
+      # ★ config.json 은 반드시 "파일" 로 마운트한다.
+      #   호스트에 파일이 없으면 도커가 같은 이름의 디렉터리를 만들어 버린다.
+      - ./data/config.json:/multirole/config.json
+      - ./data/sync:/multirole/sync
+      - ./data/replays:/multirole/replays
+      - ./data/room-logs:/multirole/room-logs
+      - ./data/logs:/multirole/logs
+      - ./data/tmp:/multirole/tmp

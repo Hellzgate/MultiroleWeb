@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1
+#
+# FALLBACK Dockerfile - use this one only if `apk add python3` fails
+# (alpine:edge repo drift, "UNTRUSTED signature", DNS blocked at build time).
+#
+# Build:  docker build -f Dockerfile.pystage -t multirole-web:1.0.0 .
+#
+# Why this works: both stages are musl/Alpine, so the official CPython build can
+# be copied straight in. The multirole image already ships libssl3/libcrypto3,
+# which python's _ssl/_hashlib need.
+
+FROM python:3.12-alpine AS py
+
+FROM dyxel/multirole:v1.1.0
+
+COPY --from=py /usr/local /usr/local
+
+ENV TZ=Asia/Seoul \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MR_BASE=/multirole \
+    WEB_BIND=0.0.0.0 \
+    WEB_PORT=8080 \
+    MR_STOP_GRACE=10 \
+    MR_RESTART_DELAY=3 \
+    MR_LOG_MAX=10485760 \
+    MR_LOG_KEEP=3
+
+WORKDIR /multirole
+
+COPY webui.py /app/webui.py
+COPY index.html /app/index.html
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=6s --start-period=25s --retries=3 \
+  CMD python3 -c "import os,sys,urllib.request;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('WEB_PORT','8080')+'/api/health',timeout=4).status==200 else 1)"
+
+CMD ["python3", "/app/webui.py"]

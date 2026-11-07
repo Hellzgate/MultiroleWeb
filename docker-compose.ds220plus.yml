@@ -1,0 +1,33 @@
+# DS220+ 전용 (host 네트워크) — 현재 운영 중인 구성에 맞춘 변형
+#
+# 현재 컨테이너(dyxel-multirole-1)가  network=host  로 돌고 있으므로
+# 포트 매핑(ports:)은 쓰지 않고, 7911/7922/웹포트가 NAS 에 직접 바인딩된다.
+#
+# 사용법:
+#   /volume1/docker/multirole/ 에 이 파일을 docker-compose.yml 로 두고
+#   Container Manager → 프로젝트 → 이 폴더 선택 → 빌드/실행
+
+services:
+  multirole:
+    build:
+      context: .
+      dockerfile: Dockerfile          # apk 실패 시 Dockerfile.pystage
+    image: multirole-web:1.0.0
+    container_name: multirole-web
+    restart: unless-stopped
+    network_mode: host                # ★ 기존 구성과 동일
+    stop_grace_period: 25s
+
+    environment:
+      TZ: Asia/Seoul
+      # ★ 반드시 변경. 비우면 인증 없이 누구나 설정을 바꿀 수 있다.
+      WEB_TOKEN: "CHANGE_ME_please"
+      WEB_PORT: "8090"                # 8080 은 NAS 에서 이미 사용 중 → 8090
+      MR_STOP_GRACE: "10"
+      MR_RESTART_DELAY: "3"
+      MR_LOG_MAX: "10485760"
+      MR_LOG_KEEP: "3"
+
+    volumes:
+      # 기존과 동일하게 폴더 전체를 바인드 (config.json / sync / replays / tmp 유지)
+      - ./:/multirole

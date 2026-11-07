@@ -1,0 +1,28 @@
+# 파이썬
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 로컬 실행 흔적
+logs/
+front.json
+front.json.bak-*
+*.tmp
+
+# 비밀값 (절대 커밋 금지)
+NAS-ACCESS.md
+_web_token.txt
+.ssh/
+*.pem
+*.key
+
+# 백업/패키징 산출물
+*.zip
+_backups/
+dist/
+
+# 편집기/OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

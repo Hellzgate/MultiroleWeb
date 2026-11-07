@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multirole Web</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <h1>Multirole Web</h1>
+  <span class="pill"><span id="dot" class="dot"></span><span id="stateText">확인 중…</span></span>
+  <span class="pill" id="pidPill">PID —</span>
+  <span class="pill" id="upPill">가동 —</span>
+  <span class="pill" id="cliPill">접속 —</span>
+  <span class="pill hidden" id="pendPill" style="color:#f7dc9c;border-color:#7c5c11">설정 변경됨 · 재시작 필요</span>
+  <span class="spacer"></span>
+  <button id="btnStart" class="sm">시작</button>
+  <button id="btnStop" class="sm">중지</button>
+  <button id="btnRestart" class="sm danger">재시작</button>
+</header>
+
+<nav>
+  <button data-tab="config" class="active">설정</button>
+  <button data-tab="status">상태</button>
+  <button data-tab="logs">로그</button>
+  <button data-tab="replays">리플레이</button>
+</nav>
+
+<main>
+  <!-- 설정 -->
+  <section id="tab-config">
+    <div id="cfgBanner" class="banner info hidden"></div>
+    <div class="card" style="margin-bottom:14px">
+      <h3>LAN 방 기본값 — 클라이언트의 <b>비밀번호 칸</b>이 방 이름/규칙이 됩니다</h3>
+      <p class="muted" style="line-height:1.7;margin:0 0 10px">
+        <code>duel</code> → 방 <b>duel</b> &nbsp;·&nbsp;
+        <code>duel#1234</code> → 방 duel + 비밀번호 1234 &nbsp;·&nbsp;
+        <code>d#1#l=4000,t=300</code> → 규칙까지 지정 &nbsp;·&nbsp;
+        <code>#l=4000</code> → 기본방 + LP 4000 &nbsp;·&nbsp; 빈칸 → 기본 방 이름<br>
+        <b>비밀번호 칸은 19자 제한</b>이라 규칙은 짧은 키를 쓰세요 —
+        <code>l</code> LP · <code>h</code> 패 · <code>d</code> 드로우 · <code>t</code> 초 · <code>b</code> 판수 ·
+        <code>m</code> 메인 · <code>x</code> 엑스트라 · <code>s</code> 사이드 · <code>r</code> MR · <code>g</code> 태그,
+        <code>ocg</code>/<code>tcg</code> 는 그대로. 긴 옵션은 아래 <b>기본값</b>으로 두는 편이 좋습니다.
+      </p>
+      <div id="frontForm"></div>
+      <div class="toolbar" style="margin:12px 0 0">
+        <button id="btnFrontSave" class="primary">적용 (즉시)</button>
+        <button id="btnFrontReload">다시 읽기</button>
+        <a href="/api/lflists.zip" style="color:#7fb3f5;font-size:13px;align-self:center">📥 금지목록 파일 내려받기 (ZIP)</a>
+        <span class="muted" id="frontHint"></span>
+      </div>
+      <details style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
+        <summary style="cursor:pointer;color:#bcd7f7;font-size:13px">
+          📖 방 이름·규칙 넣는 법 (초보자용, 클릭해서 펼치기)
+        </summary>
+        <div class="muted" style="line-height:1.9;margin-top:10px">
+          <b>① 게임에서 할 일</b> — EDOPro 「LAN + AI 대전」 → IP <code>&lt;서버 주소&gt;</code>,
+          포트 <code>7914</code> → <b>비밀번호 칸</b>에 방 이름 입력 → 들어가기 → 덱 선택 → 준비.<br>
+          <b>② 비밀번호 칸을 비우면</b> 모두 <code>lobby</code> 방에서 만납니다(가장 간단).<br>
+          <b>③ 여러 방</b>은 이름을 적으면 됩니다 — <code>duel</code> / <code>친구들</code>.
+          비밀번호를 걸려면 <code>duel#1234</code>.<br>
+          <b>④ 규칙까지</b> — 짧은 키로 <code>d#1#l=4000,t=300</code>
+          (방 d, 비번 1, LP 4000, 300초). <b>19자 제한</b>이 있으니 긴 규칙은 아래 기본값으로.<br>
+          <b>⑤ 아래 기본값</b>은 <b>새로 만드는 방</b>부터 적용됩니다(이미 만든 방은 그대로).
+          <code>금지/제한</code>을 고르면 게임의 <code>금지/제한: N/A</code> 대신 그 목록이 표시됩니다.
+        </div>
+      </details>
+    </div>
+    <div class="toolbar">
+      <button id="btnSave" class="primary">저장</button>
+      <button id="btnApply">저장 후 재시작</button>
+      <button id="btnReload">파일 다시 읽기</button>
+      <button id="btnRaw" class="sm">원본 JSON</button>
+      <span class="muted" id="cfgPath"></span>
+    </div>
+    <div id="cfgForm"></div>
+    <fieldset id="rawWrap" class="hidden">
+      <legend>config.json (원본)</legend>
+      <textarea id="rawText" spellcheck="false" style="min-height:60vh"></textarea>
+      <div class="toolbar" style="margin-top:10px;margin-bottom:0">
+        <button id="btnRawApply" class="primary">이 JSON 적용</button>
+        <button id="btnRawCancel">닫기</button>
+        <span class="muted">JSON5 아님 — 순수 JSON 만. 주석 불가.</span>
+      </div>
+    </fieldset>
+  </section>
+
+  <!-- 상태 -->
+  <section id="tab-status" class="hidden">
+    <div class="toolbar">
+      <button id="btnStatus">새로고침</button>
+      <span class="muted" id="statusTime"></span>
+    </div>
+    <div class="grid" id="statusGrid"></div>
+    <div class="card" style="margin-top:12px">
+      <h3>저장소 (git) — [갱신] 은 웹훅으로 즉시 pull</h3>
+      <table><thead><tr><th>이름</th><th>HEAD</th><th>마지막 fetch</th><th>경로</th><th></th></tr></thead>
+      <tbody id="repoBody"></tbody></table>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>데이터 파일 수 (provider)</h3>
+      <table><thead><tr><th>provider</th><th>파일 수</th><th>리포</th></tr></thead><tbody id="provBody"></tbody></table>
+    </div>
+  </section>
+
+  <!-- 로그 -->
+  <section id="tab-logs" class="hidden">
+    <div class="toolbar">
+      <button id="btnLogRefresh">새로고침</button>
+      <label class="chk"><input type="checkbox" id="autoLog" checked> 자동 (2초)</label>
+      <button id="btnLogBottom" class="sm">맨 아래로</button>
+      <span class="muted" id="logPath"></span>
+    </div>
+    <pre id="logbox"></pre>
+  </section>
+
+  <!-- 리플레이 -->
+  <section id="tab-replays" class="hidden">
+    <div class="toolbar">
+      <button id="btnRep">새로고침</button>
+      <span class="muted" id="repDir"></span>
+    </div>
+    <div class="card"><table><thead><tr><th>파일</th><th>크기</th><th>시각</th><th></th></tr></thead>
+      <tbody id="repBody"></tbody></table></div>
+  </section>
+</main>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h2 id="mTitle"></h2>
+    <div id="mBody"></div>
+    <div class="actions">
+      <button id="mCancel">취소</button>
+      <button id="mOk" class="primary">확인</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/Util.js"></script>
+<script src="/js/Api.js"></script>
+<script src="/js/State.js"></script>
+<script src="/js/Header.js"></script>
+<script src="/js/ConfigForm.js"></script>
+<script src="/js/FrontPanel.js"></script>
+<script src="/js/StatusPanel.js"></script>
+<script src="/js/LogPanel.js"></script>
+<script src="/js/ReplayPanel.js"></script>
+<script src="/js/App.js"></script>
+</body>
+</html>
