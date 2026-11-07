@@ -133,6 +133,12 @@ class Settings(object):
         self.auth_path = os.environ.get("MR_AUTH_FILE") or os.path.join(persist_dir, "auth.json")
         # both(기본) | account | token
         self.auth_mode = (os.environ.get("MR_AUTH") or "both").strip().lower()
+        # 유령 방(봇만 남은 방) 자동 정리
+        self.ghost_auto = (os.environ.get("MR_GHOST_AUTO") or "1").strip() not in ("0", "false", "off")
+        try:
+            self.ghost_timeout = float(os.environ.get("MR_GHOST_TIMEOUT") or 90)
+        except ValueError:
+            self.ghost_timeout = 90.0
         # 리포 갱신 결과(마지막 성공/실패·커밋 목록) — 패널 재시작 후에도 표시
         self.sync_state_path = os.environ.get("MR_SYNC_STATE") or os.path.join(persist_dir, "sync.json")
         self.room_defaults = _env_room_defaults()

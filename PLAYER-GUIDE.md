@@ -40,7 +40,7 @@ EDOPro 의 **서버 대전** 목록을 쓰려면 `config\configs.json` 의 `"ser
 {
   "name": "친구 서버",
   "address": "<서버 주소>",
-  "duelport": 7914,
+  "duelport": 7914,          // 7911 이 아니라 7914 — 이 경로만 봇·정리 기능이 동작합니다
   "roomaddress": "<서버 주소>",
   "roomlistprotocol": "http",
   "roomlistport": 7922

@@ -1,3 +1,31 @@
+## v1.6.0 — 2026-11-07
+
+### 새 기능 — 유령 방 자동 정리 (`App/GhostRooms.py`)
+- **문제**: 사람이 끊겨도 **봇은 방이 목록에 있는 한 계속 대기**한다. Multirole 은 사용자가 **0명**일 때만 방을 닫으므로,
+  `[봇 혼자 남은 방]` 이 영원히 남았다(방을 닫으려면 재시작뿐).
+- **해결**: 10초마다 로비를 훑어 **사람 세션이 0인 봇 방**을 찾아
+  ① 남은 세션을 끊고(kick) ② 봇을 중지(stop) → 사용자 0 → Multirole 이 방을 닫는다.
+  - 프론트가 방 번호별 세션 수를 추적(`MercuryFront.session_counts()` / `kick_room()`)
+  - `classify()` 는 순수 함수 → `--selftest` 로 검증
+  - 유예시간 기본 **90초**(`MR_GHOST_TIMEOUT`), 자동 정리 스위치 `MR_GHOST_AUTO`(기본 1)
+  - 프론트를 거치지 않은(직결) 방은 **건드리지 않는다**(사람일 수 있으므로) → `unknown`
+- **수동 정리**: `POST /api/rooms/close {"roomId":N}` · 설정 탭 방 목록에 **[방 닫기]** + `유령` 배지
+- ⚠ **오탐 방지**: 사람 세션을 **한 번도 못 본 방**은 대상에서 제외한다(직결 7911 사용자를 봇만 남은 방으로 오판 금지).
+- ℹ **소스 확인**: Multirole 은 `Waiting.cpp` 의 `ConnectionLost` 에서 **방장(host)이 끊기면 방을 즉시 닫는다**
+  (`return State::Closing{}`). 그래서 '봇만 남은 방'은 **프론트 세션이 끝났는데도 방이 살아 있는 비정상 상태**에서만 생긴다.
+  → 주 방어선은 keepalive/watchdog 이고, 이 정리는 **보조 안전망 + 수동 버튼**이다.
+- `GET /api/rooms` 에 `humans`(사람 세션 수) · `bot`(덱) · `ghost`(자동 정리 대상) 추가
+
+### 운영 방침 — 접속은 **7914 하나로**
+- 유령 방 보호(keepalive·watchdog·정리)는 **프론트를 거치는 경로에서만** 동작한다.
+- `duelport 7911` 직결은 multirole 이 소켓을 직접 들고 있어 외부에서 끊을 수 없다 → **7914 로 통일**.
+- 부작용: multirole 이 보는 접속 IP 가 `127.0.0.1` 이 된다(방장 kick 시 그 방에서 IP 차단 가능, 방이 닫히면 해제).
+
+### 검증
+- `--selftest` **113/113** (추가: `ghost.classify` · `ghost.no-human-seen` · `ghost.after-timeout` · `ghost.human-present` · `ghost.close-room` · `http.rooms-ghost`)
+- **실서버 E2E**: 합성 클라이언트(7914 JOIN 'ghosttest') → 방 생성(id=1) → 봇 `raisemoon` 2초 만에 입장(users 2명)
+  → 클라이언트 FIN 종료 → **5초 뒤 방·봇 모두 사라짐**(방장 이탈 = 방 즉시 폐쇄, 봇도 자동 종료).
+
 ## v1.5.4 — 2026-11-07
 
 ### 새 기능 — 「봇」 탭에 **봇 부르는 법** 안내 붙임 (사용자 요청)

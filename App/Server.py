@@ -10,6 +10,7 @@ from . import VERSION
 from .AuthStore import AuthStore
 from .Context import CTX
 from .DuelProxy import DuelProxy
+from .GhostRooms import GhostReaper
 from .MercuryFront import MercuryFront
 from .HttpApi import Handler, PanelServer
 from .Settings import Settings, ensure_persist_link
@@ -28,6 +29,7 @@ class App(object):
         self.proxy2 = DuelProxy(st, self.sup.log, label="relay", drop_types=set(),
                                 target=st.proxy2_target)
         self.front = MercuryFront(st, self.sup.log)
+        self.ghost = None
 
 
 def build_app(st):
@@ -59,6 +61,11 @@ def main(argv):
 
     def on_term(signum, frame):
         app.sup.log("[webui] signal %s -> shutting down" % signum)
+        if getattr(app, "ghost", None):
+            try:
+                app.ghost.stop()
+            except Exception:
+                pass
         for p in (getattr(app, "proxy", None), getattr(app, "proxy2", None), getattr(app, "front", None)):
             try:
                 if p:
@@ -91,6 +98,9 @@ def main(argv):
             app.front.start()
         except OSError as exc:
             app.sup.log("[front] 시작 실패: %s" % exc)
+
+    app.ghost = GhostReaper(st, app, app.sup.log)
+    app.ghost.start()
 
     httpd = PanelServer((st.bind, st.port), Handler)
     app.sup.log("[webui] listening on http://%s:%d" % (st.bind, st.port))

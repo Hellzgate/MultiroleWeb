@@ -583,6 +583,44 @@ def selftest():
           and [x["deck"] for x in cat["catalog"]] == ["Rank V", "Tearlaments", "Unknown-Deck"],
           json.dumps(cat["catalog"], ensure_ascii=False)[:220])
 
+    # -- 유령 방 판정 ----------------------------------------------------- #
+    from .GhostRooms import classify, GhostReaper
+
+    seen = {}
+    res = classify([1, 2, 3, 4], {1: 2, 2: 1, 3: 0}, {2: "raisemoon"}, seen, 1000.0, 90)
+    check("ghost.classify",
+          res["ghost"] == [] and res["alive"] == [1, 2] and res["unknown"] == [3, 4],
+          json.dumps(res))
+    ever = {1}
+    res2 = classify([1, 2, 3, 4], {1: 2, 2: 1, 3: 0}, {2: "raisemoon"}, seen, 1091.0, 90, ever)
+    # room 2 는 사람을 본 적이 없어(ever 미포함) 자동 정리 대상이 아니다
+    check("ghost.no-human-seen", res2["ghost"] == [] and res2["unknown"] == [3, 4], json.dumps(res2))
+    ever.add(2)
+    res3 = classify([1, 2, 3, 4], {1: 2, 2: 1, 3: 0}, {2: "raisemoon"}, seen, 1091.0, 90, ever)
+    check("ghost.after-timeout", res3["ghost"] == [2] and res3["alive"] == [1], json.dumps(res3))
+    res4 = classify([1, 2], {1: 2, 2: 2}, {2: "raisemoon"}, {}, 2000.0, 90)
+    check("ghost.human-present", res4["ghost"] == [], json.dumps(res4))
+
+    class _GhostApp(object):
+        class front(object):
+            @staticmethod
+            def kick_room(rid):
+                return 2
+    class _GhostSt(object):
+        bot_enabled = False
+        bot_url = "http://127.0.0.1:1"
+        list_port = 1
+    gr = GhostReaper(_GhostSt(), _GhostApp(), lambda m: None)
+    out = gr.close_room(7, why="test")
+    check("ghost.close-room", out["kicked"] == 2 and out["room"] == 7
+          and gr.history and gr.history[-1]["why"] == "test", json.dumps(out))
+
+    # 로비(7922)가 없는 테스트 환경에서는 502 가 정상 → 200 이면 ghost 필드까지 확인
+    code, body = call("GET", "/api/rooms")
+    rooms_body = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.rooms-ghost", code == 502 or (code == 200 and "ghost" in rooms_body),
+          (str(code) + " " + body[:140].decode("utf-8", "replace")))
+
     code, body = call("GET", "/api/bots")
     bots_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.bots", code == 200 and isinstance(bots_body.get("running"), list)

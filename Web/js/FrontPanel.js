@@ -213,13 +213,17 @@ MR.frontPanel.loadRooms = async function () {
     return;
   }
   var rooms = r.data.rooms || [];
-  MR.$('roomBotHint').textContent = rooms.length + '개 방';
+  var g = r.data.ghost || {};
+  var ghosts = rooms.filter(function (x) { return x.ghost; }).length;
+  MR.$('roomBotHint').textContent = rooms.length + '개 방' +
+    (ghosts ? ' · 유령 ' + ghosts + '개(자동 정리 ' + (g.enabled ? 'ON' : 'OFF') + ')' : '');
   rooms.forEach(function (room) {
     var tr = document.createElement('tr');
     tr.innerHTML = '<td>' + MR.esc(room.id) + '</td>' +
       '<td>' + MR.esc(room.notes || '(이름 없음)') + '</td>' +
       '<td>' + MR.esc((room.users || []).join(', ')) + '</td>' +
-      '<td>' + (room.started ? '진행 중' : '대기') + '</td>';
+      '<td>' + (room.started ? '진행 중' : '대기') +
+      (room.ghost ? ' <span class="tag err">유령</span>' : '') + '</td>';
     var tdDeck = document.createElement('td');
     var inp = document.createElement('input');
     inp.type = 'text';
@@ -237,8 +241,18 @@ MR.frontPanel.loadRooms = async function () {
     b2.className = 'sm';
     b2.style.marginLeft = '6px';
     b2.onclick = function () { MR.frontPanel.botStop(room.id); };
+    var b3 = document.createElement('button');
+    b3.textContent = '방 닫기';
+    b3.className = 'sm danger';
+    b3.style.marginLeft = '6px';
+    b3.title = '남은 세션을 끊고 봇을 중지해 방을 닫습니다';
+    b3.onclick = function () {
+      MR.confirmBox('방 닫기', '방 ' + room.id + ' 의 세션을 끊고 봇을 중지합니다. 진행 중인 듀얼이면 그 판이 끊깁니다.',
+        '방 닫기', function () { MR.frontPanel.roomClose(room.id); });
+    };
     tdBtn.appendChild(b1);
     tdBtn.appendChild(b2);
+    tdBtn.appendChild(b3);
     tr.appendChild(tdBtn);
     body.appendChild(tr);
   });
@@ -251,6 +265,15 @@ MR.frontPanel.botStart = async function (roomId, deck) {
     ? ('방 ' + roomId + ' 에 ' + (r.data.deck || deck) + ' 투입' + (r.data.already ? ' (이미 있음)' : ''))
     : ('투입 실패: ' + JSON.stringify((r.data && r.data.error) || r.status));
   MR.frontPanel.loadRooms();
+};
+
+MR.frontPanel.roomClose = async function (roomId) {
+  var r = await MR.api('POST', '/api/rooms/close', { roomId: roomId });
+  var res = (r.data && r.data.result) || {};
+  MR.$('roomBotHint').textContent = (r.status === 200)
+    ? ('방 ' + roomId + ' 닫기 요청 — 세션 ' + (res.kicked || 0) + '개 종료 · 봇 ' + (res.stopped ? '중지' : '없음'))
+    : ('닫기 실패 HTTP ' + r.status);
+  setTimeout(function () { MR.frontPanel.loadRooms(); }, 1500);
 };
 
 MR.frontPanel.botStop = async function (roomId) {

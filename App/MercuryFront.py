@@ -98,6 +98,9 @@ class MercuryFront(object):
         self.joined = 0
         self._decks = set()              # 봇 덱 이름 캐시(공백 덱 호출용, 60초)
         self._deck_at = 0.0
+        # 방 번호별 세션 추적(유령 방 정리용). tag -> {"room": id, "client": sock, "upstream": sock}
+        self._sessions = {}
+        self._sess_lock = threading.Lock()
 
     # -- lifecycle -------------------------------------------------------- #
     def start(self, port=None):
@@ -210,6 +213,42 @@ class MercuryFront(object):
             self.connections += 1
             threading.Thread(target=self._handle, args=(client, addr), daemon=True).start()
 
+    # -- 세션 추적(유령 방 정리) ------------------------------------------- #
+    def _register(self, tag, client, upstream):
+        with self._sess_lock:
+            self._sessions[tag] = {"room": None, "client": client, "upstream": upstream}
+
+    def _unregister(self, tag):
+        with self._sess_lock:
+            self._sessions.pop(tag, None)
+
+    def _set_room(self, tag, rid):
+        with self._sess_lock:
+            if tag in self._sessions:
+                self._sessions[tag]["room"] = int(rid)
+
+    def session_counts(self):
+        """방 번호 -> 세션 수(사람+봇)."""
+        out = {}
+        with self._sess_lock:
+            for info in self._sessions.values():
+                rid = info.get("room")
+                if rid is not None:
+                    out[rid] = out.get(rid, 0) + 1
+        return out
+
+    def kick_room(self, rid):
+        """그 방에 물린 프론트 세션을 모두 끊는다(사용자 제거 → 방이 비면 Multirole 이 닫는다)."""
+        rid = int(rid)
+        with self._sess_lock:
+            victims = [(t, i["client"], i["upstream"])
+                       for t, i in self._sessions.items() if i.get("room") == rid]
+        for tag, client, upstream in victims:
+            _close(client)
+            _close(upstream)
+            self.log("[front] %s kick (room %d)" % (tag, rid))
+        return len(victims)
+
     def _handle(self, client, addr):
         tag = "%s:%d" % (addr[0], addr[1])
         try:
@@ -226,6 +265,7 @@ class MercuryFront(object):
         _keepalive(upstream)
         self.log("[front] %s connected" % tag)
         st = {"pending_name": None}
+        self._register(tag, client, upstream)
         threading.Thread(target=self._srv_pump, args=(upstream, client, tag, st), daemon=True).start()
         threading.Thread(target=self._watch_session, args=(client, upstream, tag, st), daemon=True).start()
         try:
@@ -234,6 +274,7 @@ class MercuryFront(object):
             self.log("[front] %s session error: %s: %s" % (tag, type(exc).__name__, exc))
         finally:
             st["done"] = True
+            self._unregister(tag)
             _close(upstream)
             _close(client)
             self.log("[front] %s closed" % tag)
@@ -285,6 +326,8 @@ class MercuryFront(object):
                     self._log_frame(tag, "<-", fr)
                     if typ == 0x11 and len(fr) >= 7:      # STOC_CREATE_GAME → room id
                         rid = struct.unpack("<I", fr[3:7])[0]
+                        st["room_id"] = rid
+                        self._set_room(tag, rid)
                         name = st.get("pending_name")
                         key = (name or self.st.front_autoroom or "lobby").strip().lower()
                         self.rooms[key] = rid
@@ -445,6 +488,8 @@ class MercuryFront(object):
                         if rid:
                             upstream.sendall(build_join(rid, spec["password"]))
                             st["sent_join"] = True
+                            st["room_id"] = rid
+                            self._set_room(tag, rid)
                             self.joined += 1
                             self.log("[front] %s join '%s' -> id=%d" % (tag, spec["name"], rid))
                             if st.get("bot_deck") and not st.get("bot_spawned"):

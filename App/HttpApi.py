@@ -306,10 +306,28 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:  # noqa: BLE001
                 self._json({"error": str(exc), "rooms": []}, 502)
                 return
-            slim = [{"id": r.get("roomid"), "notes": r.get("roomnotes"),
-                     "needpass": r.get("needpass"), "started": r.get("istart") == "start",
-                     "users": [u.get("name") for u in (r.get("users") or [])]} for r in rooms]
-            self._json({"rooms": slim})
+            ghost = getattr(self.app, "ghost", None)
+            counts = self.app.front.session_counts() if getattr(self.app, "front", None) else {}
+            bots = getattr(ghost, "bot_rooms", None) or {}
+            ghosts = getattr(ghost, "ghost_rooms", None) or set()
+            slim = []
+            for r in rooms:
+                try:
+                    rid = int(r.get("roomid"))
+                except (TypeError, ValueError):
+                    continue
+                total = counts.get(rid, 0)
+                humans = total - (1 if (rid in bots and total > 0) else 0)
+                slim.append({"id": rid, "notes": r.get("roomnotes"),
+                             "needpass": r.get("needpass"), "started": r.get("istart") == "start",
+                             "users": [u.get("name") for u in (r.get("users") or [])],
+                             "humans": max(0, humans),
+                             "bot": bots.get(rid),
+                             "ghost": rid in ghosts})
+            self._json({"rooms": slim,
+                        "ghost": {"enabled": bool(getattr(ghost, "enabled", False)),
+                                  "timeout": getattr(ghost, "timeout", 0),
+                                  "history": getattr(ghost, "history", [])[-5:]}})
             return
 
         if path == "/api/bot":
@@ -493,6 +511,23 @@ class Handler(BaseHTTPRequestHandler):
             self.app.sup.want = False
             threading.Thread(target=lambda: self.app.sup.stop(graceful=True), daemon=True).start()
             self._json({"ok": True})
+            return
+
+        if path == "/api/rooms/close":
+            body = self._read_body()
+            try:
+                req = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                req = {}
+            try:
+                rid = int(req.get("roomId") or req.get("id") or 0)
+            except (TypeError, ValueError):
+                rid = 0
+            ghost = getattr(self.app, "ghost", None)
+            if rid <= 0 or ghost is None:
+                self._json({"error": "roomId 필요"}, 400)
+                return
+            self._json({"ok": True, "result": ghost.close_room(rid, why="manual")})
             return
 
         if path == "/api/bot/start":
