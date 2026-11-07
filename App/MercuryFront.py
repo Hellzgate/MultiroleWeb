@@ -25,7 +25,10 @@ Multirole 은
 
 import json
 import re
+import select
 import socket
+import sys
+import traceback
 import zlib
 import struct
 import threading
@@ -314,12 +317,12 @@ class MercuryFront(object):
                 _close(client)
                 return
         # create_connection 의 15초 타임아웃이 recv 까지 남아 15초 침묵하면 끊기므로 해제
-        upstream.settimeout(None)
-        client.settimeout(None)
+        upstream.settimeout(30.0)          # 유휴는 정상 → 펌프가 continue 로 계속 대기
+        client.settimeout(30.0)
         _keepalive(client)
         _keepalive(upstream)
         self.log("[front] %s connected (별칭 %s)" % (tag, pseudo))
-        st = {"pending_name": None}
+        st = {"pending_name": None, "thread": threading.current_thread()}
         self._register(tag, client, upstream, addr[0], pseudo)
         if self.access:
             self.access.write("connect", ip=addr[0], pseudo=pseudo)
@@ -354,12 +357,13 @@ class MercuryFront(object):
             return
         seen = 0
         while not st.get("done") and not self._stop:
-            time.sleep(5)
+            time.sleep(2)
             state = _conn_state(peer)
             if state in ("08", "07", "09"):            # CLOSE_WAIT / CLOSE / LAST_ACK
                 seen += 1
-                if seen >= 2:                          # 10초 이상 방치 → 강제 종료
-                    self.log("[front] %s stale socket(%s) 10s → 강제 종료" % (tag, state))
+                if seen >= 2:                          # 약 4초 이상 방치 → 강제 종료
+                    self._dump_stack(tag, st)
+                    self.log("[front] %s stale socket(%s) 4s → 강제 종료" % (tag, state))
                     st["done"] = True
                     _close(client)
                     _close(upstream)
@@ -367,15 +371,35 @@ class MercuryFront(object):
             elif state in ("01", "02", "03", "0B"):    # 살아있음/연결 중
                 seen = 0
 
+    def _dump_stack(self, tag, st):
+        """방치된 세션의 **스레드 스택**을 로그에 남긴다(원인 추적용)."""
+        th = st.get("thread")
+        if th is None:
+            return
+        try:
+            frame = sys._current_frames().get(th.ident)
+            if frame is None:
+                return
+            stack = "".join(traceback.format_stack(frame, limit=8))
+            one = " | ".join(x.strip() for x in stack.split("\n") if x.strip())
+            self.log("[front] %s stack: %s" % (tag, one[:900]))
+        except Exception:                      # noqa: BLE001
+            pass
+
     def _srv_pump(self, upstream, client, tag, st):
         buf = b""
         try:
             while True:
-                data = upstream.recv(8192)
+                try:
+                    data = upstream.recv(8192)
+                except socket.timeout:
+                    if st.get("done"):
+                        break
+                    continue
                 if not data:
                     self.log("[front] %s server closed" % tag)
                     break
-                client.sendall(data)
+                _send(client, data)
                 buf += data
                 while len(buf) >= 3:
                     stored = struct.unpack("<H", buf[0:2])[0]
@@ -432,7 +456,7 @@ class MercuryFront(object):
                             else:
                                 spec = st.get("spec") or RoomSpec.parse("", self.st.effective_room())
                                 try:
-                                    upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
+                                    _send(upstream, build_create_game(spec, self._banlist_hash(spec)))
                                 except OSError:
                                     pass
         except Exception as exc:                       # noqa: BLE001
@@ -468,7 +492,12 @@ class MercuryFront(object):
         buf = b""
         try:
             while True:
-                data = client.recv(8192)
+                try:
+                    data = client.recv(8192)
+                except socket.timeout:
+                    if st.get("done"):
+                        break
+                    continue
                 if not data:
                     self.log("[front] %s client closed" % tag)
                     break
@@ -511,13 +540,13 @@ class MercuryFront(object):
                                 buf[3 + 7] = 1              # HostInfo.dontCheckDeckContent
                                 fr = bytes(buf)
                                 self.log("[front] 봇 방(서버모드) → 덱 확인하지 않기 ON")
-                        upstream.sendall(fr)
+                        _send(upstream, fr)
                         self.log("[front] 서버모드 방 생성 요청 '%s'" % (st["pending_name"] or ""))
                         continue
 
                     if typ == 0x10:                        # PLAYER_INFO → 이름 기억
                         st["player"] = parse_utf16(body)
-                        upstream.sendall(fr)
+                        _send(upstream, fr)
                         if self.st.front_autocreate:
                             self._arm_autocreate(upstream, tag, st)
                         continue
@@ -554,7 +583,7 @@ class MercuryFront(object):
                                 self.log("[front] 봇 방 → 덱 확인하지 않기 ON")
                         rid = self._resolve_room(game_id, spec["name"])
                         if rid:
-                            upstream.sendall(build_join(rid, spec["password"]))
+                            _send(upstream, build_join(rid, spec["password"]))
                             st["sent_join"] = True
                             st["room_id"] = rid
                             self._set_room(tag, rid)
@@ -568,13 +597,13 @@ class MercuryFront(object):
                                 st["bot_spawned"] = True
                                 self._spawn_bot(rid, st["bot_deck"])
                         else:
-                            upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
+                            _send(upstream, build_create_game(spec, self._banlist_hash(spec)))
                             st["created_here"] = True
                             self.log("[front] %s create '%s' [%s] (없는 방)"
                                      % (tag, spec["name"], spec["notes"]))
                         continue
 
-                    upstream.sendall(fr)                   # 나머지는 그대로
+                    _send(upstream, fr)                   # 나머지는 그대로
         except Exception as exc:                       # noqa: BLE001
             if getattr(exc, "errno", None) != 9:          # 9 = 이미 닫힌 소켓(정상 종료 경합)
                 self.log("[front] %s client pump error: %s: %s"
@@ -701,12 +730,12 @@ class MercuryFront(object):
             rid = self._find_room(room)
             try:
                 if rid:
-                    upstream.sendall(build_join(rid, spec["password"]))
+                    _send(upstream, build_join(rid, spec["password"]))
                     self.joined += 1
                     self.log("[front] %s autocreate join '%s' -> id=%d (JOIN 없음)"
                              % (tag, room, rid))
                 else:
-                    upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
+                    _send(upstream, build_create_game(spec, self._banlist_hash(spec)))
                     st["pending_name"] = room
                     self.log("[front] %s autocreate '%s' [%s] (JOIN 없음 → 대신 개설)"
                              % (tag, room, spec["notes"]))
@@ -732,6 +761,30 @@ class MercuryFront(object):
         else:
             return "", None
         return parse_utf16(raw), (game_id if game_id else None)
+
+
+def _send(sock, data, timeout=10.0):
+    """상대가 읽지 않아 sendall 이 영원히 멈추는 것을 막는다.
+
+    쓰기 버퍼가 `timeout` 초 동안 비지 않으면 연결이 죽은 것으로 보고 OSError 를 낸다
+    (호출부의 except 가 세션을 닫는다). 관측: 클라이언트 FIN 이후 펌프가 sendall 에
+    걸려 EOF 를 처리하지 못하고 CLOSE_WAIT 으로 10초 남던 사례가 있었다.
+    """
+    view = memoryview(data)
+    while view:
+        try:
+            _, writable, _ = select.select([], [sock], [], timeout)
+        except (OSError, ValueError):
+            raise OSError("select failed")
+        if not writable:
+            raise OSError("send timeout (peer not reading)")
+        try:
+            n = sock.send(view)
+        except (BlockingIOError, InterruptedError):
+            continue
+        if n <= 0:
+            raise OSError("send returned %d" % n)
+        view = view[n:]
 
 
 def _close(sock):

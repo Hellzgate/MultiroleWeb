@@ -646,6 +646,23 @@ def selftest():
     check("front.pseudo", p1 == p2 and p1 != p3 and p1.startswith("127.0.")
           and p1 != "127.0.0.1", "%s %s %s" % (p1, p2, p3))
 
+    from .MercuryFront import _send as mf_send
+
+    try:
+        s1, s2 = pysocket.socketpair()
+        mf_send(s1, b"hello", 1.0)
+        ok_send = s2.recv(5) == b"hello"
+        s1.close()
+        try:
+            mf_send(s1, b"x", 0.2)
+            closed_ok = False
+        except OSError:
+            closed_ok = True
+        s2.close()
+        check("front.send-guard", ok_send and closed_ok)
+    except OSError as exc:
+        check("front.send-guard", False, str(exc))
+
     code, body = call("GET", "/api/access?tail=10")
     acc_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.access", code == 200 and isinstance(acc_body.get("items"), list),
