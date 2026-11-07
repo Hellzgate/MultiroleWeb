@@ -109,13 +109,19 @@
   <section id="tab-status" class="hidden">
     <div class="toolbar">
       <button id="btnStatus">새로고침</button>
+      <button id="btnSyncAll" class="primary">전체 갱신</button>
       <span class="muted" id="statusTime"></span>
     </div>
+    <div class="banner info hidden" id="syncBanner"></div>
     <div class="grid" id="statusGrid"></div>
     <div class="card" style="margin-top:12px">
-      <h3>저장소 (git) — [갱신] 은 웹훅으로 즉시 pull</h3>
-      <table><thead><tr><th>이름</th><th>HEAD</th><th>마지막 fetch</th><th>경로</th><th></th></tr></thead>
+      <h3>저장소 (git) — 갱신은 웹훅(git fetch + reset)으로 <b>즉시</b> 반영됩니다</h3>
+      <table><thead><tr><th>이름</th><th>HEAD</th><th>마지막 갱신</th><th>결과</th><th>경로</th><th></th></tr></thead>
       <tbody id="repoBody"></tbody></table>
+    </div>
+    <div class="card hidden" style="margin-top:12px" id="syncCard">
+      <h3>갱신 결과 <span class="muted" id="syncSummary"></span></h3>
+      <div id="syncResult"></div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>데이터 파일 수 (provider)</h3>

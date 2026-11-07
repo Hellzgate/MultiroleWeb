@@ -10,6 +10,7 @@ import os
 from . import VERSION
 from .ConfigSchema import is_int
 from .ConfigStore import ConfigError, load_config
+from .GitSync import SyncState
 from .SysInfo import (
     client_counts,
     count_matching,
@@ -169,6 +170,15 @@ def collect_status(st, sup):
         replays = _collect_replays(st, cfg)
         cores, tmp_dir = _collect_cores(st, cfg)
 
+    # 리포별 '마지막 갱신 결과'(sync.json) — 실패 사유·커밋 목록까지 표에 보여준다
+    sync_state = None
+    try:
+        sync_state = SyncState(st.sync_state_path)
+    except Exception:                                   # noqa: BLE001
+        sync_state = None
+    for repo in repos:
+        repo["lastSync"] = sync_state.get(repo.get("name")) if sync_state else None
+
     ports = _ports_of(cfg)
     return {
         "version": VERSION,
@@ -184,6 +194,10 @@ def collect_status(st, sup):
         "clients": client_counts(ports) if ports else None,
         "ports": [{"port": p, "open": port_open(p)} for p in ports],
         "repos": repos,
+        "sync": {
+            "lastAll": sync_state.last_all() if sync_state else None,
+            "path": st.sync_state_path,
+        },
         "providers": providers,
         "replays": replays,
         "cores": cores,

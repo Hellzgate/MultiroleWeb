@@ -21,6 +21,7 @@ from .AuthStore import COOKIE as SESSION_COOKIE, SESSION_TTL
 from .ConfigSchema import KEY_DOCS, is_int, validate
 from .ConfigStore import ConfigError, load_config, save_config
 from .Context import CTX
+from .GitSync import SyncState, sync_all
 from .Status import collect_ping, collect_status
 from .SysInfo import client_counts, file_sha256
 
@@ -584,37 +585,41 @@ class Handler(BaseHTTPRequestHandler):
                     "path": self.app.st.front_json})
 
     def _sync(self):
+        """리포 갱신. `{"name": "<리포>"}` → 그 리포만, 이름이 없으면 **전체 갱신**.
+
+        응답: {"ok": bool, "all": bool, "summary": {...}, "results": [리포별 결과]}
+        리포별 결과에는 before→after HEAD, 커밋/파일 목록, 실패 사유, 자식 로그가 들어간다.
+        """
         body = self._read_body()
         try:
             req = json.loads(body.decode("utf-8") or "{}")
         except ValueError:
             self._json({"error": "bad json"}, 400)
             return
-        name = req.get("name") or ""
-        cfg = load_config(self.app.st)
-        target = None
-        for r in cfg.get("repos") or []:
-            if isinstance(r, dict) and r.get("name") == name:
-                target = r
-                break
-        if target is None:
+        name = (req.get("name") or "").strip()
+        st = self.app.st
+        try:
+            cfg = load_config(st)
+        except ConfigError as exc:
+            self._json({"error": (exc.errors or ["config error"])[0]}, 422)
+            return
+        state = SyncState(st.sync_state_path)
+        out = sync_all(st, cfg, state, self._log, name or None)
+        if out is None:
             self._json({"error": "unknown repo: %s" % name}, 404)
             return
-        port = target.get("webhookPort")
-        token = target.get("webhookToken") or ""
-        try:
-            req2 = urllib.request.Request(
-                "http://127.0.0.1:%d/" % int(port),
-                data=("token=%s" % token).encode("utf-8"),
-                method="POST",
-            )
-            with urllib.request.urlopen(req2, timeout=60) as resp:
-                code = resp.status
-        except Exception as exc:  # noqa: BLE001
-            self._json({"error": "webhook failed: %s" % exc, "port": port}, 502)
-            return
-        self._log("sync requested for '%s' (webhook :%s -> %s)" % (name, port, code))
-        self._json({"ok": True, "repo": name, "status": code})
+        _status_cache.update({"at": 0.0, "value": None})     # 다음 상태 조회는 새로 수집
+        results = out["results"]
+        summary = out["summary"]
+        self._log("sync %s: %d repos, %d changed, %d failed (%dms)" % (
+            ("'%s'" % name) if name else "ALL",
+            summary["total"], summary["changed"], summary["failed"], summary["durationMs"]))
+        payload = {"ok": summary["failed"] == 0, "all": not name,
+                   "summary": summary, "results": results}
+        if name:
+            payload["repo"] = name
+            payload["status"] = 200
+        self._json(payload)
 
     # -- PUT -------------------------------------------------------------- #
     def route_put(self):

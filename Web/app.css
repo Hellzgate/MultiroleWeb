@@ -73,3 +73,17 @@ th{color:var(--fg2);font-weight:600;font-size:12px}
 .hidden{display:none!important}
 .errlist{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#f7b4b4}
 .muted{color:var(--fg2);font-size:12px}
+/* 갱신 결과 (상태 탭) */
+.sync-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--bg3)}
+.sync-item:last-child{margin-bottom:0}
+.sync-item.err{border-color:#7f2020;background:#2a1212}
+.sync-item .sync-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sync-item .sync-head code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#cfd7e6}
+.sync-item .sync-sub{color:var(--fg2);font-size:11.5px;margin-top:5px}
+.sync-item .sync-sub.bad{color:#f7b4b4}
+.sync-item ul.sync-list{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--fg2);line-height:1.55}
+.sync-item ul.sync-list li{word-break:break-all}
+.sync-item ul.sync-list code{color:#cfd7e6}
+.sync-item pre.sync-log{margin:8px 0 0;padding:8px;background:#0a0c11;border:1px solid var(--line);border-radius:8px;
+font-size:11.5px;line-height:1.5;color:#f7b4b4;white-space:pre-wrap;word-break:break-all;max-height:160px;overflow:auto}
+button[disabled]{opacity:.55;cursor:default}

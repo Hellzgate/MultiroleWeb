@@ -1,3 +1,34 @@
+## v1.4.2 — 2026-11-07
+
+### 새 기능 — 저장소 **전체 갱신** + 갱신 결과/실패 로그 표시
+- 상태 탭에 **[전체 갱신]** 버튼 → `POST /api/sync`(이름 없이) = **모든 리포를 순서대로** 갱신
+  - 리포별 [갱신] 버튼은 그대로(이름 지정)
+  - 응답: `{ ok, all, summary{total,changed,failed,durationMs,at}, results[ {name, ok, changed, from, to, head, commitCount, commits[], fileCount, files[], durationMs, error, log[]} ] }`
+- **무엇이 갱신되었는지** 표시
+  - 갱신은 `웹훅(= git fetch + reset)` 이므로 **전/후 HEAD 비교**로 변경 여부 판정(같으면 "변경 없음")
+  - 바뀌면 이전→새 해시, **커밋 목록(메시지)** 과 **변경 파일 목록**(`git log` / `git diff --name-status`)
+  - 결과 카드에 리포별로 표시(커밋 20개·파일 8개까지, 나머지는 "외 N개")
+- **실패도 로그로**
+  - 웹훅은 오류여도 200 을 돌려주므로, multirole 자식 로그의 갱신 구간(`[Service:GitRepository] [Level:Error] …`)을 읽어 사유 표시
+  - 실패는 빨간 배너 + 결과 카드(빨간 테두리) + 패널 로그(`sync 'scripts' FAILED: …`)에 남김
+- 리포 표에 **마지막 갱신 시각/결과** 열 추가(`sync.json` 에 저장 → 패널 재시작 후에도 유지)
+- `GET /api/status` 에 `repos[].lastSync` · `sync.lastAll` 추가
+
+### 함정 (실측)
+
+- multirole 웹훅은 요청의 **첫 256바이트**에서만 토큰을 찾는다(`Webhook::Connection::DoReadHeader`).
+  본문(`token=...`)만 보내면 헤더/본문이 다른 TCP 세그먼트로 갈 때 **간헐적으로 "Webhook payload does not have a token"** → 갱신 실패.
+  → 토큰을 **URL 경로에도** 넣고(`POST /<token>`), 그래도 토큰 오류면 **1회 재시도**한다.
+- 웹훅은 오류여도 **HTTP 200** 을 돌려준다 → 실패 판정은 자식 로그(`[Service:GitRepository] [Level:Error]`)로만 가능.
+- `repos` 에 `file://` 이 아닌 경로를 쓰면 컨테이너에 **마운트된 경로**여야 한다(`/multirole/sync/...` 만 보임).
+
+### 이미지
+- `apk add git` — 커밋/파일 목록을 정확히 얻기 위해 **git CLI** 를 포함(이미지 59.7MB → **72.1MB**)
+  - 없으면 HEAD 변화와 파일 mtime 추정만 가능하므로 커밋 메시지를 못 보여준다.
+
+### 실측
+- `--selftest` **95/95 PASS** (sync 8건 추가: HEAD 읽기·상태 저장·로그 파싱·mtime·실패 보고·HTTP 전체 갱신·상태 반영)
+
 ## v1.4.1 — 2026-11-07
 
 ### 추가

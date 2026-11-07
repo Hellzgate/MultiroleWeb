@@ -144,6 +144,45 @@ def selftest():
     store.reset()
     check("auth.reset", not store.exists())
 
+    # -- 저장소 갱신 결과 (GitSync) --------------------------------------- #
+    from .GitSync import SyncState, files_by_mtime, git_log_lines, read_head, sync_all
+
+    repo_dir = os.path.join(tmp, "sync", "scripts")
+    check("sync.read-head", read_head(repo_dir) == "deadbeefcafe1234567890")
+
+    state_path = os.path.join(tmp, "sync.json")
+    state = SyncState(state_path)
+    state.set({"name": "scripts", "ok": True, "changed": True, "from": "aaaaaaa", "to": "bbbbbbb",
+               "commitCount": 2, "commits": [{"hash": "a1b2c3d", "subject": "x"}],
+               "fileCount": 1, "files": [{"status": "M", "path": "c123.lua"}],
+               "at": "2026-01-01 00:00:00", "durationMs": 5, "error": None})
+    state.add_history({"at": "t", "total": 1, "changed": 1, "failed": 0, "repos": []})
+    state.save()
+    again = SyncState(state_path)
+    got = again.get("scripts") or {}
+    check("sync.state-roundtrip",
+          got.get("from") == "aaaaaaa" and got.get("commitCount") == 2
+          and (again.last_all() or {}).get("changed") == 1)
+
+    sample_log = [
+        "[a] [Service:GitRepository] [Level:Info] Webhook triggered.",
+        "[a] [Service:GitRepository] [Level:Error] Exception occurred while updating repo: boom",
+        "[a] [Service:Other] [Level:Info] ignored",
+    ]
+    picked = git_log_lines(sample_log)
+    check("sync.log-parse", len(picked) == 2 and picked[1]["error"] and "boom" in picked[1]["text"])
+
+    changed_files, changed_total = files_by_mtime(repo_dir, 0)
+    check("sync.mtime-files", changed_total >= 2 and bool(changed_files)
+          and changed_files[0]["status"] == "M")
+
+    fail_cfg = {"repos": [{"name": "scripts", "path": "./sync/scripts/",
+                           "webhookPort": 1, "webhookToken": "t"}]}
+    fail_out = sync_all(st, fail_cfg, SyncState(os.path.join(tmp, "sync2.json")))
+    check("sync.failure-reported",
+          fail_out["summary"]["failed"] == 1 and fail_out["results"][0]["ok"] is False
+          and "웹훅" in (fail_out["results"][0]["error"] or ""))
+
     # -- 방 이름/규칙 파서 (RoomSpec) ------------------------------------- #
     from . import RoomSpec
 
@@ -463,6 +502,20 @@ def selftest():
 
     code, body = call("POST", "/api/sync", {"name": "nope"})
     check("http.sync-unknown", code == 404)
+
+    fast = json.loads(json.dumps(changed))
+    fast["repos"][0]["webhookPort"] = 1              # 닫힌 포트 → 즉시 연결 거부
+    call("PUT", "/api/config", fast)
+    code, body = call("POST", "/api/sync", {})
+    data = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.sync-all", code == 200 and data.get("all") is True
+          and data["summary"]["total"] == 1 and data["summary"]["failed"] == 1
+          and data["results"][0]["name"] == "scripts",
+          body[:160].decode("utf-8", "replace"))
+    check("http.sync-state-saved", os.path.exists(os.path.join(tmp, "sync.json")))
+
+    code, body = call("GET", "/api/status")
+    check("http.status-last-sync", b"lastSync" in body and b"lastAll" in body)
 
     code, _ = call("POST", "/api/start")
     check("http.start", code == 200)

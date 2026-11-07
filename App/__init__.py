@@ -22,7 +22,7 @@
 
 import os
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.dirname(PACKAGE_DIR)

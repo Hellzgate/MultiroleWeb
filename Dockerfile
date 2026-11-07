@@ -3,7 +3,7 @@
 # Multirole + web control panel  (single image, pattern A)
 # --------------------------------------------------------
 # base  : dyxel/multirole:v1.1.0  (Alpine/musl, linux/amd64 only)
-# extra : python3 (stdlib only - no pip, no build tools)
+# extra : python3 (stdlib only - no pip) + git (repository status/log for the panel)
 # cmd   : our supervisor instead of ./area-zero.sh
 #
 # The supervisor starts ./multirole as a child, restarts it when it exits and
@@ -28,7 +28,7 @@ LABEL org.opencontainers.image.title="multirole-web" \
 # soname/version -> `FROM dyxel/multirole:vX.Y.Z` alone is enough for an upgrade.
 RUN mkdir -p /tmp/_tc && cp -a /usr/lib/libtcmalloc* /tmp/_tc/ 2>/dev/null || true
 RUN apk update \
- && apk add --no-cache --force-broken-world python3 tzdata
+ && apk add --no-cache --force-broken-world python3 tzdata git
 RUN cp -an /tmp/_tc/libtcmalloc* /usr/lib/ 2>/dev/null || true; rm -rf /tmp/_tc; \
  ls -l /usr/lib/libtcmalloc* 2>/dev/null || echo "no tcmalloc in base (fine)"
 

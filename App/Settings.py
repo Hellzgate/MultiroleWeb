@@ -133,6 +133,8 @@ class Settings(object):
         self.auth_path = os.environ.get("MR_AUTH_FILE") or os.path.join(persist_dir, "auth.json")
         # both(기본) | account | token
         self.auth_mode = (os.environ.get("MR_AUTH") or "both").strip().lower()
+        # 리포 갱신 결과(마지막 성공/실패·커밋 목록) — 패널 재시작 후에도 표시
+        self.sync_state_path = os.environ.get("MR_SYNC_STATE") or os.path.join(persist_dir, "sync.json")
         self.room_defaults = _env_room_defaults()
         self.room_overrides = {}
         self.load_room_overrides()
