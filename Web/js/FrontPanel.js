@@ -188,11 +188,73 @@ MR.frontPanel = {
     if (r.status === 200 && r.data) MR.frontPanel.render(r.data);
   },
 
+
   bind: function () {
     /* 도움말의 서버 주소는 보고 있는 주소로 채운다(저장소에는 자리표시자만) */
     var addr = MR.$('frontAddr');
     if (addr && location.hostname) addr.textContent = location.hostname;
     MR.$('btnFrontSave').onclick = function () { MR.frontPanel.save(); };
     MR.$('btnFrontReload').onclick = function () { MR.frontPanel.load(); };
+    var rr = MR.$('btnRoomRefresh');
+    if (rr) rr.onclick = function () { MR.frontPanel.loadRooms(); };
   }
+};
+
+/* ---------------------------------------------------------------- *
+ * 현재 방 목록 + 봇 즉시 투입
+ * ---------------------------------------------------------------- */
+MR.frontPanel.loadRooms = async function () {
+  var r = await MR.api('GET', '/api/rooms');
+  var body = MR.$('roomBotBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (r.status !== 200 || !r.data) {
+    MR.$('roomBotHint').textContent = '방 목록 조회 실패 (' + r.status + ')';
+    return;
+  }
+  var rooms = r.data.rooms || [];
+  MR.$('roomBotHint').textContent = rooms.length + '개 방';
+  rooms.forEach(function (room) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + MR.esc(room.id) + '</td>' +
+      '<td>' + MR.esc(room.notes || '(이름 없음)') + '</td>' +
+      '<td>' + MR.esc((room.users || []).join(', ')) + '</td>' +
+      '<td>' + (room.started ? '진행 중' : '대기') + '</td>';
+    var tdDeck = document.createElement('td');
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.value = 'raisemoon';
+    inp.style.minWidth = '120px';
+    tdDeck.appendChild(inp);
+    tr.appendChild(tdDeck);
+    var tdBtn = document.createElement('td');
+    var b1 = document.createElement('button');
+    b1.textContent = '봇 투입';
+    b1.className = 'sm';
+    b1.onclick = function () { MR.frontPanel.botStart(room.id, inp.value); };
+    var b2 = document.createElement('button');
+    b2.textContent = '중지';
+    b2.className = 'sm';
+    b2.style.marginLeft = '6px';
+    b2.onclick = function () { MR.frontPanel.botStop(room.id); };
+    tdBtn.appendChild(b1);
+    tdBtn.appendChild(b2);
+    tr.appendChild(tdBtn);
+    body.appendChild(tr);
+  });
+};
+
+MR.frontPanel.botStart = async function (roomId, deck) {
+  var r = await MR.api('POST', '/api/bot/start', { roomId: roomId, deck: deck });
+  var ok = r.status === 200 && r.data && !r.data.error;
+  MR.$('roomBotHint').textContent = ok
+    ? ('방 ' + roomId + ' 에 ' + (r.data.deck || deck) + ' 투입' + (r.data.already ? ' (이미 있음)' : ''))
+    : ('투입 실패: ' + JSON.stringify((r.data && r.data.error) || r.status));
+  MR.frontPanel.loadRooms();
+};
+
+MR.frontPanel.botStop = async function (roomId) {
+  var r = await MR.api('POST', '/api/bot/stop', { roomId: roomId });
+  MR.$('roomBotHint').textContent = (r.status === 200) ? ('방 ' + roomId + ' 봇 중지') : ('중지 실패 ' + r.status);
+  MR.frontPanel.loadRooms();
 };

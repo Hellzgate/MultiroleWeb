@@ -32,6 +32,7 @@ MR.app = {
     MR.app.bind();
     MR.configForm.load();
     MR.frontPanel.load();
+    MR.frontPanel.loadRooms();
     MR.header.refresh();
     setInterval(MR.header.refresh, 5000);
   }

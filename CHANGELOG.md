@@ -1,3 +1,16 @@
+## v1.3.7 — 2026-11-07
+
+### 새 기능
+- **패널 「지금 열려 있는 방 — 봇 즉시 투입」**: 웹 패널에서 현재 방 목록(번호·Notes·인원·상태)을 보고
+  **덱 이름을 적어 [봇 투입]** / [중지] 할 수 있다.
+  - **서버 대전 모드로 7911 에 직접 만든 방**처럼 프론트를 거치지 않은 방에도 봇을 붙일 수 있다
+- API: `GET /api/rooms` · `POST /api/bot/start {roomId, deck}` · `POST /api/bot/stop {roomId}`
+- 봇 이름: 기본 덱이면 `MR_BOT_NAME`, 다른 덱이면 **덱 이름**으로 표시
+
+### 실측
+- 7911 직결 방(`Notes='b:Tearlaments'`) → `/api/bot/start` → **+2초** `users=['SrvBoss','Raisemoon']`
+- `--selftest` 79/79 PASS
+
 ## v1.3.6 — 2026-11-07
 
 ### 새 기능

@@ -264,6 +264,23 @@ class Handler(BaseHTTPRequestHandler):
             self._lflists_zip()
             return
 
+        if path == "/api/rooms":
+            st = self.app.st
+            rooms = []
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/api/getrooms" % st.list_port,
+                                            timeout=4) as resp:
+                    raw = resp.read().decode("utf-8", "replace")
+                rooms = json.loads(raw.split("\r\n\r\n", 1)[-1]).get("rooms", [])
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc), "rooms": []}, 502)
+                return
+            slim = [{"id": r.get("roomid"), "notes": r.get("roomnotes"),
+                     "needpass": r.get("needpass"), "started": r.get("istart") == "start",
+                     "users": [u.get("name") for u in (r.get("users") or [])]} for r in rooms]
+            self._json({"rooms": slim})
+            return
+
         if path == "/api/bot":
             st = self.app.st
             out = {"enabled": st.bot_enabled, "url": st.bot_url,
@@ -355,11 +372,49 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
+        if path == "/api/bot/start":
+            body = self._read_body()
+            try:
+                req = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                req = {}
+            self._bot_proxy("/start", req)
+            return
+
+        if path == "/api/bot/stop":
+            body = self._read_body()
+            try:
+                req = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                req = {}
+            self._bot_proxy("/stop", req)
+            return
+
         if path == "/api/sync":
             self._sync()
             return
 
         self._json({"error": "no route"}, 404)
+
+    def _bot_proxy(self, sub, payload):
+        st = self.app.st
+        if not st.bot_enabled:
+            self._json({"error": "봇 서비스가 꺼져 있습니다(MR_BOT_URL)"}, 503)
+            return
+        if sub == "/start" and isinstance(payload, dict) and not payload.get("name"):
+            deck = str(payload.get("deck") or st.bot_deck)
+            payload["name"] = st.bot_name if deck == st.bot_deck else deck
+        try:
+            req = urllib.request.Request(st.bot_url + sub, data=json.dumps(payload).encode("utf-8"),
+                                         method="POST",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8", "replace") or "{}")
+        except Exception as exc:  # noqa: BLE001
+            self._json({"error": "bot service: %s" % exc}, 502)
+            return
+        self._log("bot %s %s -> %s" % (sub, payload, data))
+        self._json(data)
 
     def _restart(self):
         qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
