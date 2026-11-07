@@ -105,10 +105,16 @@ KEY_ALIASES = {
     # 짧은 키 — 비밀번호 칸이 19자뿐이라 길이를 아끼려고 둔다
     "l": "lp", "h": "hand", "d": "draw", "t": "time", "b": "best",
     "m": "main", "x": "extra", "s": "side", "r": "mr", "g": "tag",
+    # 금제: n (N/A) / n=<금제>  · 2026-11-07 추가
+    "n": "banlist", "bl": "banlist", "ban": "banlist", "lflist": "banlist",
 }
 
+# 금제 없음(N/A)으로 해석하는 값들
+BANLIST_NONE = ("", "none", "off", "no", "na", "n/a", "0", "-", "없음", "사용안함")
+
 # '=' 없이 쓰는 토큰
-BARE_TOKENS = {"ocg": ("mode", "ocg"), "tcg": ("mode", "tcg"), "tag": ("tag", 1)}
+BARE_TOKENS = {"ocg": ("mode", "ocg"), "tcg": ("mode", "tcg"), "tag": ("tag", 1),
+              "n": ("banlist", "")}      # 맨몸 n = 금제 N/A
 
 
 def utf16_fixed(text, slot_bytes):
@@ -194,6 +200,10 @@ def _parse_options(segment, opts, warnings):
             else:
                 warnings.append("알 수 없는 mode=%s (ocg/tcg/both/pre/any)" % value)
             continue
+        if key == "banlist":
+            low = value.strip().lower()
+            opts["banlist"] = "" if low in BANLIST_NONE else value.strip()
+            continue
         if key == "default_room":
             opts["default_room"] = normalize_name(value, {"default_room": "lobby"})
             continue
@@ -234,7 +244,8 @@ def parse(text, base=None):
         seg = seg.strip()
         if not seg:
             continue
-        if ("=" in seg) or ("," in seg) or (";" in seg):
+        if ("=" in seg) or ("," in seg) or (";" in seg) or (seg.lower() == "n"):
+            # `n` 은 금제 N/A 플래그(맨몸 토큰) — 비밀번호로 쓰이지 않게 옵션으로 보낸다
             _parse_options(seg, opts, warnings)
         elif not password:
             password = seg
@@ -283,6 +294,9 @@ def describe(name, opts, base):
         tail.append(MODE_LABELS.get(MODE_CODES.get(opts.get("mode"), 0), str(opts.get("mode"))))
     if opts.get("tag") != base.get("tag"):
         tail.append("태그")
+    if opts.get("banlist") != base.get("banlist"):
+        b = (opts.get("banlist") or "").strip()
+        tail.append("금제N/A" if not b else "금제" + b.split("|")[-1].strip())
     text = name if not tail else "%s (%s)" % (name, " · ".join(tail))
     raw = text.encode("utf-8")[:199]
     return raw.decode("utf-8", "ignore")

@@ -173,6 +173,11 @@ def resolve(st, text):
     for e in entries:
         if e["section"].lower() == text.lower() or e["file"].lower() == text.lower():
             return e["hash"]
+    # 부분 일치(예: n=2026.10) — 섹션/파일 이름에 포함되면 그 금제
+    low = text.lower()
+    for e in entries:
+        if low in e["section"].lower() or low in e["file"].lower():
+            return e["hash"]
     return 0
 
 

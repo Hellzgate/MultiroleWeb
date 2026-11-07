@@ -806,6 +806,26 @@ def selftest():
     cd = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.cards", code == 200 and isinstance(cd.get("items"), list), body[:120].decode("utf-8", "replace"))
 
+    # -- LAN 비밀번호 칸 금제 키 (n / n=...) ------------------------------- #
+    from .RoomSpec import parse as _parse_room
+
+    base_room = {"default_room": "lobby", "lp": 8000, "hand": 5, "draw": 1, "time": 500,
+                 "best": 3, "mr": 5, "mode": "pre", "main_min": 40, "main_max": 60,
+                 "extra_min": 0, "extra_max": 15, "side_min": 0, "side_max": 15,
+                 "tag": 0, "banlist": "OCG.lflist.conf|2026.10 OCG", "nocheck": 0}
+    r_plain = _parse_room("duel", base_room)
+    r_n = _parse_room("duel#n", base_room)
+    r_n2 = _parse_room("duel#n=none#l=4000", base_room)
+    r_sel = _parse_room("duel#n=2026.10", base_room)
+    check("room.banlist-n",
+          r_plain["opts"]["banlist"] == base_room["banlist"]
+          and r_n["opts"]["banlist"] == "" and r_n["password"] == ""
+          and r_n2["opts"]["banlist"] == "" and r_n2["opts"]["lp"] == 4000
+          and r_sel["opts"]["banlist"] == "2026.10"
+          and "금제N/A" in r_n["notes"],
+          json.dumps({"plain": r_plain["opts"]["banlist"], "n": r_n["notes"],
+                      "sel": r_sel["opts"]["banlist"]}, ensure_ascii=False)[:200])
+
     code, body = call("GET", "/api/auth/backups")
     ab_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.auth-backups", code == 200 and isinstance(ab_body.get("items"), list),
