@@ -249,6 +249,17 @@ class MercuryFront(object):
         with self._sess_lock:
             return (self._sessions.get(tag) or {}).get("pseudo") or ""
 
+    def _ip_rooms(self, ip):
+        """같은 IP 가 이미 들어가 있는 방 번호들."""
+        if not ip:
+            return []
+        out = set()
+        with self._sess_lock:
+            for info in self._sessions.values():
+                if info.get("ip") == ip and info.get("room") is not None:
+                    out.add(info["room"])
+        return sorted(out)
+
     def room_ips(self, rid):
         """그 방에 있는 프론트 세션들의 실제 IP(중복 제거)."""
         rid = int(rid)
@@ -617,6 +628,14 @@ class MercuryFront(object):
                                 spec["opts"]["nocheck"] = 1
                                 self.log("[front] 봇 방 → 덱 확인하지 않기 ON")
                         rid = self._resolve_room(game_id, spec["name"])
+                        if not rid and not raw_text.strip():
+                            # 이름 없는 JOIN(클라이언트가 방을 고르지 않음)인데 같은 IP 가 이미 방에 있으면
+                            # 기본방('lobby')을 **새로 만들지 않는다** — 중복 접속이 유령 방을 만들던 문제.
+                            busy = self._ip_rooms(self.ip_of(tag))
+                            if busy:
+                                self.log("[front] %s 빈 JOIN 무시 — 같은 IP 가 이미 방 %s 에 있음"
+                                         % (tag, busy))
+                                continue
                         if rid:
                             _send(upstream, build_join(rid, spec["password"]))
                             st["sent_join"] = True
