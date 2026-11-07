@@ -10,6 +10,9 @@
 - 메뉴얼 `MANUAL-room-rules.md` **§9 봇과 대전하기** — **부를 수 있는 봇 49종 표** 포함
 - 환경변수: `MR_BOT_URL` · `MR_BOT_MAX`(기본 2) · `MR_BOT_DECK` · `MR_BOT_NAME`
 
+### 수정
+- **리플레이 목록 = 최신순**(수정 시각 desc). 예전에는 파일명 내림차순이라 `999 → 99 → 989` 처럼 섞였다
+
 ### 실측
 - Mono 6.12 에서 WindBot 기동 · 15 cdb 로드 · 레이즈문 실행기 · 대사 정상, **CPU 0.24% / RAM 39MB**
 - ``bot`` → 2초 내 `Raisemoon` 입장 · ``b:SunGodTimeWizard`` → `SunGodTimeWizard` 입장 · 방 종료 후 **자동 종료 확인**

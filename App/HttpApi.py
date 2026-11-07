@@ -542,14 +542,15 @@ def _proxy_status(app):
 
 
 def list_replays(folder, limit=200):
-    """replays 폴더의 .yrpX 목록(최신 이름 우선). 없으면 빈 목록."""
+    """replays 폴더의 .yrpX 목록 — **최근에 만들어진 것이 맨 위**."""
     items = []
     if not os.path.isdir(folder):
         return items
     try:
-        names = sorted(os.listdir(folder), reverse=True)
+        names = os.listdir(folder)
     except OSError:
         return items
+    rows = []
     for fn in names:
         if not fn.lower().endswith(".yrpx"):
             continue
@@ -558,15 +559,17 @@ def list_replays(folder, limit=200):
             stt = os.stat(full)
         except OSError:
             continue
+        rows.append((stt.st_mtime, fn, stt.st_size))
+    # 최신 → 과거. 같은 시각이면 파일명 내림차순으로 안정 정렬
+    rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
+    for mtime, fn, size in rows[:limit]:
         items.append(
             {
                 "name": fn,
-                "bytes": stt.st_size,
-                "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stt.st_mtime)),
+                "bytes": size,
+                "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mtime)),
             }
         )
-        if len(items) >= limit:
-            break
     return items
 
 
