@@ -220,13 +220,45 @@ class MercuryFront(object):
         # create_connection 의 15초 타임아웃이 recv 까지 남아 15초 침묵하면 끊기므로 해제
         upstream.settimeout(None)
         client.settimeout(None)
+        _keepalive(client)
+        _keepalive(upstream)
         self.log("[front] %s connected" % tag)
         st = {"pending_name": None}
         threading.Thread(target=self._srv_pump, args=(upstream, client, tag, st), daemon=True).start()
-        self._cli_pump(client, upstream, tag, st)
-        _close(upstream)
-        _close(client)
-        self.log("[front] %s closed" % tag)
+        threading.Thread(target=self._watch_session, args=(client, upstream, tag, st), daemon=True).start()
+        try:
+            self._cli_pump(client, upstream, tag, st)
+        except Exception as exc:                       # noqa: BLE001 — 어떤 예외든 소켓은 닫는다
+            self.log("[front] %s session error: %s: %s" % (tag, type(exc).__name__, exc))
+        finally:
+            st["done"] = True
+            _close(upstream)
+            _close(client)
+            self.log("[front] %s closed" % tag)
+
+    def _watch_session(self, client, upstream, tag, st):
+        """FIN 만 받고 스레드가 멈춘 소켓(CLOSE_WAIT)을 강제로 정리한다.
+
+        이걸 안 하면 프론트가 7911 업스트림을 계속 붙잡아 방이 로비에 남는다(유령 방).
+        """
+        try:
+            peer = client.getpeername()
+        except OSError:
+            return
+        seen = 0
+        while not st.get("done") and not self._stop:
+            time.sleep(5)
+            state = _conn_state(peer)
+            if state in ("08", "07", "09"):            # CLOSE_WAIT / CLOSE / LAST_ACK
+                seen += 1
+                if seen >= 2:                          # 10초 이상 방치 → 강제 종료
+                    self.log("[front] %s stale socket(%s) 10s → 강제 종료" % (tag, state))
+                    st["done"] = True
+                    _close(client)
+                    _close(upstream)
+                    return
+            elif state in ("01", "02", "03", "0B"):    # 살아있음/연결 중
+                seen = 0
 
     def _srv_pump(self, upstream, client, tag, st):
         buf = b""
@@ -290,9 +322,10 @@ class MercuryFront(object):
                                     upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
                                 except OSError:
                                     pass
-        except OSError as exc:
+        except Exception as exc:                       # noqa: BLE001
             if getattr(exc, "errno", None) != 9:          # 9 = 이미 닫힌 소켓(정상 종료 경합)
-                self.log("[front] %s server pump error: %s" % (tag, exc))
+                self.log("[front] %s server pump error: %s: %s"
+                         % (tag, type(exc).__name__, exc))
         _close(client)
         _close(upstream)
 
@@ -423,9 +456,10 @@ class MercuryFront(object):
                         continue
 
                     upstream.sendall(fr)                   # 나머지는 그대로
-        except OSError as exc:
+        except Exception as exc:                       # noqa: BLE001
             if getattr(exc, "errno", None) != 9:          # 9 = 이미 닫힌 소켓(정상 종료 경합)
-                self.log("[front] %s client pump error: %s" % (tag, exc))
+                self.log("[front] %s client pump error: %s: %s"
+                         % (tag, type(exc).__name__, exc))
         _close(upstream)
         _close(client)
 
@@ -562,3 +596,58 @@ def _close(sock):
         sock.close()
     except OSError:
         pass
+
+
+# --- 소켓 위생 (2026-11-07) -------------------------------------------------
+# 사고: 클라이언트가 FIN 만 보내고 사라졌는데(관찰: 7914 CLOSE_WAIT) 프론트가
+#      7911 업스트림을 붙잡고 있어 Multirole 이 사용자를 계속 유지 → 로비에 유령 방.
+#   원인 1) 펌프 스레드가 OSError 가 아닌 예외로 죽으면 close 를 건너뛴다.
+#   원인 2) half-open(전원/네트워크 끊김)은 커널 타임아웃(기본 2시간)까지 남는다.
+def _dec4(h):
+    return socket.inet_ntop(socket.AF_INET, bytes.fromhex(h)[::-1])
+
+
+def _dec6(h):
+    b = bytes.fromhex(h)
+    out = b""
+    for i in range(0, 16, 4):
+        out += b[i:i + 4][::-1]
+    return socket.inet_ntop(socket.AF_INET6, out)
+
+
+def _norm_ip(ip):
+    return (ip or "").replace("::ffff:", "")
+
+
+def _keepalive(sock, idle=60, intvl=15, cnt=4):
+    """half-open 을 커널이 정리하도록(기본 2시간 → 약 105초)."""
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        for name, val in (("TCP_KEEPIDLE", idle), ("TCP_KEEPINTVL", intvl), ("TCP_KEEPCNT", cnt)):
+            opt = getattr(socket, name, None)
+            if opt is not None:
+                sock.setsockopt(socket.IPPROTO_TCP, opt, val)
+    except OSError:
+        pass
+
+
+def _conn_state(peer):
+    """(ip, port) 피어의 TCP 상태 코드('01'=ESTAB, '08'=CLOSE_WAIT ...) 또는 None."""
+    want_ip, want_port = _norm_ip(peer[0]), int(peer[1])
+    for path, v6 in (("/proc/net/tcp", False), ("/proc/net/tcp6", True)):
+        try:
+            lines = open(path).read().splitlines()[1:]
+        except OSError:
+            continue
+        for ln in lines:
+            f = ln.split()
+            if len(f) < 4 or f[3] == "0A":
+                continue
+            try:
+                rh, rp = f[2].split(":")
+                rip = _dec6(rh) if v6 else _dec4(rh)
+                if _norm_ip(rip) == want_ip and int(rp, 16) == want_port:
+                    return f[3]
+            except (ValueError, OSError):
+                continue
+    return None

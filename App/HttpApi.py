@@ -19,6 +19,7 @@ from .Auth import (clear_cookie_headers, cookie_value, login_cookie_headers, log
                    matches, session_cookie_headers, setup_page, token_ok)
 from .AuthStore import COOKIE as SESSION_COOKIE, SESSION_TTL
 from .ConfigSchema import KEY_DOCS, is_int, validate
+from . import Bots
 from .ConfigStore import ConfigError, load_config, save_config
 from .Context import CTX
 from .GitSync import SyncState, sync_all
@@ -325,6 +326,33 @@ class Handler(BaseHTTPRequestHandler):
             self._json(out)
             return
 
+        if path == "/api/bots":
+            st = self.app.st
+            status, decks, err = None, [], None
+            if st.bot_enabled:
+                try:
+                    with urllib.request.urlopen(st.bot_url + "/status", timeout=3) as resp:
+                        status = json.loads(resp.read().decode("utf-8", "replace") or "{}")
+                    with urllib.request.urlopen(st.bot_url + "/decks", timeout=3) as resp:
+                        decks = (json.loads(resp.read().decode("utf-8", "replace") or "{}")
+                                 or {}).get("decks") or []
+                except Exception as exc:  # noqa: BLE001
+                    err = str(exc)
+            rooms = []
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/api/getrooms" % st.list_port,
+                                            timeout=4) as resp:
+                    raw_rooms = resp.read().decode("utf-8", "replace")
+                for r in json.loads(raw_rooms.split("\r\n\r\n", 1)[-1]).get("rooms", []):
+                    rooms.append({"id": r.get("roomid"), "notes": r.get("roomnotes"),
+                                  "started": r.get("istart") == "start",
+                                  "users": [u.get("name") for u in (r.get("users") or [])]})
+            except Exception:  # noqa: BLE001 — 로비가 잠시 없어도 봇 목록은 보여준다
+                pass
+            self._json(Bots.build_view(st.bot_deck, st.bot_name, st.bot_enabled,
+                                       status, decks, rooms, err))
+            return
+
         if path == "/api/logs":
             try:
                 n = int((qs.get("tail") or ["300"])[0])
@@ -483,6 +511,10 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 req = {}
             self._bot_proxy("/stop", req)
+            return
+
+        if path == "/api/bot/stopall":
+            self._bot_proxy("/stopall", {})
             return
 
         if path == "/api/sync":

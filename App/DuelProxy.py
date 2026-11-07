@@ -112,12 +112,19 @@ class DuelProxy(object):
             self.log("[%s] %s upstream 연결 실패: %s" % (self.label, tag, exc))
             _close(client)
             return
+        _keepalive(client)
+        _keepalive(upstream)
         self.log("[%s] %s connected" % (self.label, tag))
         threading.Thread(target=self._pump_server, args=(upstream, client, tag), daemon=True).start()
-        self._pump_client(client, upstream, tag)
-        _close(upstream)
-        _close(client)
-        self.log("[%s] %s closed (연결 종료)" % (self.label, tag))
+        try:
+            self._pump_client(client, upstream, tag)
+        except Exception as exc:                       # noqa: BLE001 — 어떤 예외든 소켓은 닫는다
+            self.log("[%s] %s session error: %s: %s"
+                     % (self.label, tag, type(exc).__name__, exc))
+        finally:
+            _close(upstream)
+            _close(client)
+            self.log("[%s] %s closed (연결 종료)" % (self.label, tag))
 
     # -- 방향 2개 --------------------------------------------------------- #
     def _pump_server(self, upstream, client, tag):
@@ -143,8 +150,9 @@ class DuelProxy(object):
                     typ = frame[2]
                     self.log("[%s] %s <- %s(0x%02X) len=%d"
                              % (self.label, tag, STOC_NAMES.get(typ, "?"), typ, ln))
-        except OSError:
-            pass
+        except Exception as exc:                       # noqa: BLE001
+            self.log("[%s] %s server pump error: %s: %s"
+                     % (self.label, tag, type(exc).__name__, exc))
         _close(client)
         _close(upstream)
 
@@ -182,8 +190,9 @@ class DuelProxy(object):
                     self.log("[%s] %s pass %s(0x%02X) len=%d"
                              % (self.label, tag, CTOS_NAMES.get(typ, "?"), typ, ln))
                     upstream.sendall(frame)
-        except OSError:
-            pass
+        except Exception as exc:                       # noqa: BLE001
+            self.log("[%s] %s client pump error: %s: %s"
+                     % (self.label, tag, type(exc).__name__, exc))
         if buf:
             try:
                 upstream.sendall(buf)
@@ -202,3 +211,58 @@ def _close(sock):
         sock.close()
     except OSError:
         pass
+
+
+# --- 소켓 위생 (2026-11-07) -------------------------------------------------
+# 사고: 클라이언트가 FIN 만 보내고 사라졌는데(관찰: 7914 CLOSE_WAIT) 프론트가
+#      7911 업스트림을 붙잡고 있어 Multirole 이 사용자를 계속 유지 → 로비에 유령 방.
+#   원인 1) 펌프 스레드가 OSError 가 아닌 예외로 죽으면 close 를 건너뛴다.
+#   원인 2) half-open(전원/네트워크 끊김)은 커널 타임아웃(기본 2시간)까지 남는다.
+def _dec4(h):
+    return socket.inet_ntop(socket.AF_INET, bytes.fromhex(h)[::-1])
+
+
+def _dec6(h):
+    b = bytes.fromhex(h)
+    out = b""
+    for i in range(0, 16, 4):
+        out += b[i:i + 4][::-1]
+    return socket.inet_ntop(socket.AF_INET6, out)
+
+
+def _norm_ip(ip):
+    return (ip or "").replace("::ffff:", "")
+
+
+def _keepalive(sock, idle=60, intvl=15, cnt=4):
+    """half-open 을 커널이 정리하도록(기본 2시간 → 약 105초)."""
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        for name, val in (("TCP_KEEPIDLE", idle), ("TCP_KEEPINTVL", intvl), ("TCP_KEEPCNT", cnt)):
+            opt = getattr(socket, name, None)
+            if opt is not None:
+                sock.setsockopt(socket.IPPROTO_TCP, opt, val)
+    except OSError:
+        pass
+
+
+def _conn_state(peer):
+    """(ip, port) 피어의 TCP 상태 코드('01'=ESTAB, '08'=CLOSE_WAIT ...) 또는 None."""
+    want_ip, want_port = _norm_ip(peer[0]), int(peer[1])
+    for path, v6 in (("/proc/net/tcp", False), ("/proc/net/tcp6", True)):
+        try:
+            lines = open(path).read().splitlines()[1:]
+        except OSError:
+            continue
+        for ln in lines:
+            f = ln.split()
+            if len(f) < 4 or f[3] == "0A":
+                continue
+            try:
+                rh, rp = f[2].split(":")
+                rip = _dec6(rh) if v6 else _dec4(rh)
+                if _norm_ip(rip) == want_ip and int(rp, 16) == want_port:
+                    return f[3]
+            except (ValueError, OSError):
+                continue
+    return None

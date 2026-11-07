@@ -491,6 +491,8 @@ def selftest():
     check("http.static-css", code == 200 and b"{" in body)
     code, body = call("GET", "/js/App.js")
     check("http.static-js", code == 200 and b"MR" in body)
+    code, body = call("GET", "/js/BotPanel.js")
+    check("http.static-bot-panel", code == 200 and b"botPanel" in body)
     code, _ = call("GET", "/js/../../webui.py")
     check("http.static-traversal", code in (404, 400))
 
@@ -554,8 +556,66 @@ def selftest():
     time.sleep(1.5)
     check("http.restart-effective", app.sup.is_running())
 
+    # -- 봇 목록 --------------------------------------------------------- #
+    from .Bots import build_view as build_bots
+
+    view = build_bots(
+        "raisemoon", "Raisemoon", True,
+        {"bots": [{"room": 2, "deck": "Tearlaments", "name": "Tearlaments", "pid": 163,
+                   "alive": True, "uptime": 3477, "log": "/bot/logs/room2.log"}],
+         "decks": 53, "max": 2, "windbot": True},
+        ["raisemoon", "Tearlaments", "ABC"],
+        [{"id": 2, "notes": "b:Tearlaments", "started": False, "users": ["A", "B"]},
+         {"id": 3, "notes": "b", "started": True, "users": ["A"]}])
+    check("bots.view",
+          len(view["running"]) == 1 and view["running"][0]["uptimeText"] == "57분 57초"
+          and view["rooms"][0]["free"] is False and view["rooms"][1]["free"] is True
+          and [d["name"] for d in view["decks"]] == ["ABC", "Tearlaments", "raisemoon"]
+          and view["decks"][1]["running"] == 1,
+          json.dumps(view, ensure_ascii=False)[:220])
+
+    code, body = call("GET", "/api/bots")
+    bots_body = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.bots", code == 200 and isinstance(bots_body.get("running"), list)
+          and isinstance(bots_body.get("decks"), list) and "default" in bots_body,
+          body[:200].decode("utf-8", "replace"))
+
     httpd.shutdown()
     app.sup.shutdown()
+
+    # -- 소켓 위생 (유령 방) ---------------------------------------------- #
+    # 사고(2026-11-07): 클라이언트가 FIN 만 보내고 사라졌는데 프론트가 7911 업스트림을
+    # 붙잡고 있어 방이 로비에 남았다 → keepalive + 예외에도 close + CLOSE_WAIT 감시.
+    import inspect
+    from . import MercuryFront as _mf
+    from . import DuelProxy as _dp
+
+    src_front = inspect.getsource(_mf)
+    src_proxy = inspect.getsource(_dp)
+    check("front.keepalive", "_keepalive(client)" in src_front and "_keepalive(upstream)" in src_front)
+    check("front.close-always", "except Exception as exc:" in src_front and "finally:" in src_front)
+    check("front.watchdog", hasattr(_mf.MercuryFront, "_watch_session")
+          and '"08", "07", "09"' in src_front)
+    check("proxy.keepalive", "_keepalive(client)" in src_proxy and "_keepalive(upstream)" in src_proxy)
+
+    # _conn_state 는 /proc/net/tcp 를 읽는다 → 실제 소켓으로 상태를 찾아야 한다.
+    # (Windows 개발 PC 에는 /proc 이 없으므로 컨테이너에서만 실제 검사)
+    try:
+        if not os.path.isdir("/proc/net"):
+            raise OSError("skip: /proc 없음(컨테이너에서 검사)")
+        srv_sock = pysocket.socket(pysocket.AF_INET, pysocket.SOCK_STREAM)
+        srv_sock.setsockopt(pysocket.SOL_SOCKET, pysocket.SO_REUSEADDR, 1)
+        srv_sock.bind(("127.0.0.1", 0))
+        srv_sock.listen(1)
+        cli = pysocket.create_connection(srv_sock.getsockname(), timeout=3)
+        acc, _ = srv_sock.accept()
+        got = _mf._conn_state(cli.getpeername())
+        cli.close()
+        acc.close()
+        srv_sock.close()
+        check("front.conn-state", got == "01", "state=%s" % got)
+    except OSError as exc:
+        check("front.conn-state", str(exc).startswith("skip:"), str(exc))
 
     # -- report ---------------------------------------------------------- #
     from . import VERSION

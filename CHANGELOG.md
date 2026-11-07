@@ -1,3 +1,31 @@
+## v1.5.0 — 2026-11-07
+
+### 새 기능 — 「봇」 탭 (봇 목록 · 덱 검색 · 방에 투입/중지)
+- 새 탭 **봇** — 설정 탭에 흩어져 있던 "방마다 덱 입력 + 투입" 을 한 화면으로 모았다.
+  - **실행 중** 표: 방 번호 · 덱 · 봇 이름 · PID · 가동시간 · 상태 · 로그 파일 + [중지]
+  - **새 봇 투입**: 방 목록(번호·이름·인원·진행 여부·이미 봇이 있으면 표시) → **덱 이름 검색**(53개) → [투입]
+    - 봇은 입장 → 덱 선택 → 준비(Ready)까지 자동, 기본 이름은 `MR_BOT_NAME`(기본 덱) 또는 덱 이름
+    - 목록에서 **더블클릭**으로도 투입
+  - [전체 중지] — 확인 모달 후 `botd /stopall`
+  - 네비의 **봇 N** 배지 = 실행 중 개수
+- API: `GET /api/bots` (botd `/status` + `/decks` + 로비 7922 목록을 **한 번에** 병합) · `POST /api/bot/stopall`
+
+### 수정 — 로비에 남던 **유령 방** (세션 소켓 누수)
+- 증상: 클라이언트를 닫았는데 방이 계속 목록에 남고 봇도 대기(`users=ComicLO,<봇>`, 사람은 이미 없음).
+- 원인(실측): 프론트의 클라이언트 소켓이 **CLOSE_WAIT**(상대는 FIN, 우리는 close 안 함)인데
+  7911 업스트림은 **ESTABLISHED** 로 살아 있어 Multirole 이 사용자를 계속 유지했다.
+  - 펌프 스레드가 `OSError` 가 아닌 예외(프레임 파싱 등)로 죽으면 `_close()` 를 **건너뛰는** 구조였다.
+  - half-open(전원/네트워크 끊김)은 커널 기본(약 2시간)까지 남는다.
+- 수정 (`MercuryFront.py` · `DuelProxy.py`)
+  - **keepalive** — `SO_KEEPALIVE` + `TCP_KEEPIDLE 60` / `KEEPINTVL 15` / `KEEPCNT 4` (≈105초 내 정리)
+  - **어떤 예외든 close** — `except Exception` + `_handle` 의 `finally`
+  - **CLOSE_WAIT 감시** — 5초마다 `/proc/net/tcp` 로 소켓 상태를 보고 10초 이상 방치면 강제 종료(`stale socket → 강제 종료`)
+- 검증: 접속→FIN 시 `connected / client closed / closed` 로그 + `TIME_WAIT` 만 남음(CLOSE_WAIT·ESTAB 0)
+  · 재시작 후 **방 0개** · 봇 자동 종료(`bots: []`)
+
+### 검증
+- `--selftest` **105/105 PASS** (추가: `bots.view` · `http.bots` · `http.static-bot-panel` · `front.keepalive` · `front.close-always` · `front.watchdog` · `proxy.keepalive` · `front.conn-state`)
+
 ## v1.4.3 — 2026-11-07
 
 ### 다듬기 — 갱신 결과 화면/로그 정리 (동작 변화 없음)

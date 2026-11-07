@@ -27,6 +27,7 @@
   <button data-tab="status">상태</button>
   <button data-tab="logs">로그</button>
   <button data-tab="replays">리플레이</button>
+  <button data-tab="bots" id="navBots">봇</button>
 </nav>
 
 <main>
@@ -149,6 +150,42 @@
     <div class="card"><table><thead><tr><th>파일</th><th>크기</th><th>시각</th><th></th></tr></thead>
       <tbody id="repBody"></tbody></table></div>
   </section>
+  <!-- 봇 -->
+  <section id="tab-bots" class="hidden">
+    <div class="toolbar">
+      <button id="btnBotRefresh" class="primary">새로고침</button>
+      <button id="btnBotStopAll" class="sm danger">전체 중지</button>
+      <span class="muted" id="botHint"></span>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h3>실행 중 <span class="muted" id="botRunCount"></span></h3>
+      <table><thead><tr><th>방</th><th>덱</th><th>봇 이름</th><th>PID</th><th>가동</th><th>상태</th><th>로그</th><th></th></tr></thead>
+      <tbody id="botRunBody"></tbody></table>
+    </div>
+    <div class="card">
+      <h3>새 봇 투입</h3>
+      <p class="muted" style="margin:0 0 12px;line-height:1.7">
+        게임에서 <b>방을 먼저 만든 뒤</b> 여기서 방을 고르고 덱을 선택하세요.
+        봇은 입장 → 덱 선택 → <b>준비(Ready)</b> 까지 자동입니다.
+        방이 목록에 없으면 <b>새로고침</b>을 누르세요(로비 목록은 2~3초 지연).
+      </p>
+      <div class="row">
+        <label>방 <span class="muted">(번호 · 이름 · 인원)</span></label>
+        <div><select id="botRoom"></select></div>
+      </div>
+      <div class="row">
+        <label>덱 <span class="muted">(이름 검색)</span></label>
+        <div>
+          <input type="text" id="botDeckSearch" placeholder="예: tear, sungod, raisemoon">
+          <select id="botDeck" size="8" style="margin-top:6px"></select>
+        </div>
+      </div>
+      <div class="toolbar" style="margin:12px 0 0">
+        <button id="btnBotStart" class="primary">투입</button>
+        <span class="muted">기본 덱 <b id="botDefaultDeck">—</b> · 더블클릭으로도 투입됩니다</span>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div class="modal" id="modal">
@@ -171,6 +208,7 @@
 <script src="/js/StatusPanel.js"></script>
 <script src="/js/LogPanel.js"></script>
 <script src="/js/ReplayPanel.js"></script>
+<script src="/js/BotPanel.js"></script>
 <script src="/js/App.js"></script>
 </body>
 </html>

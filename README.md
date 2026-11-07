@@ -142,6 +142,7 @@ sudo docker compose up -d --build
 | **상태** | 프로세스(PID·가동·재시작 횟수·종료 코드), 설정(해시·**반영 대기**), 접속 수/포트 LISTEN, 리포별 HEAD·마지막 fetch·[갱신], provider 파일 수, 리플레이 수·최근 파일·용량, tmp 코어 |
 | **로그** | 자식 프로세스 stdout/stderr tail (2초 자동), 파일 경로 표시 |
 | **리플레이** | `replays/*.yrpX` 목록 + 브라우저 다운로드 |
+| **봇** | 실행 중 봇(방·덱·PID·가동·로그) + **방 선택 → 덱 검색(53개) → [투입]**, [전체 중지] |
 
 헤더: 실행 상태 · PID · 가동 시간 · 접속 수 · **[시작] [중지] [재시작]**
 
@@ -163,6 +164,8 @@ sudo docker compose up -d --build
 | GET | `/api/logs?tail=300` | 링버퍼(최대 2000줄) |
 | POST | `/api/sync` `{"name":"scripts"}` | 해당 리포 웹훅으로 토큰 POST (git pull) |
 | GET | `/api/replays` · `/api/replay?name=` | 목록 / 다운로드(경로 탈출 차단) |
+| GET | `/api/bots` | 봇 탭 데이터 — `running` · `decks` · `rooms` · `default`(botd + 로비 병합) |
+| POST | `/api/bot/start` `{"roomId":2,"deck":"raisemoon"}` · `/api/bot/stop` · `/api/bot/stopall` | 봇 투입/중지 |
 
 인증: `WEB_TOKEN` 을 설정하면 쿠키(`mr_auth`) 또는 `X-MR-Token` 헤더가 필요합니다.
 **비우면 인증 없음** — NAS 를 다른 사람이 쓰는 환경에서는 반드시 설정하세요.
