@@ -731,6 +731,31 @@ def selftest():
     ab.backup("selftest3")
     check("auth.backup-rotate", len(ab.list()) <= 2, str([x["name"] for x in ab.list()]))
 
+    # 역방향 프록시(HTTPS) 대응: Secure 쿠키 옵션 + X-Forwarded-For
+    from .Auth import session_cookie_headers as _sch, login_cookie_headers as _lch
+
+    check("http.secure-cookie-flag",
+          "; Secure" in _sch("v", 60, secure=True)["Set-Cookie"]
+          and "; Secure" in _lch("t", secure=True)["Set-Cookie"]
+          and "; Secure" not in _sch("v", 60)["Set-Cookie"], "")
+
+    import http.client as _hc
+
+    try:
+        conn = _hc.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=5)
+        conn.request("POST", "/api/login",
+                     body=urllib.parse.urlencode({"id": "admin", "pw": "wrong"}),
+                     headers={"Content-Type": "application/x-www-form-urlencoded",
+                              "X-Forwarded-Proto": "https",
+                              "X-Forwarded-For": "203.0.113.9"})
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        check("http.forwarded-ip", resp.status in (400, 401, 403, 429),
+              "status=%s" % resp.status)
+    except OSError as exc:
+        check("http.forwarded-ip", False, str(exc))
+
     code, body = call("GET", "/api/auth/backups")
     ab_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.auth-backups", code == 200 and isinstance(ab_body.get("items"), list),

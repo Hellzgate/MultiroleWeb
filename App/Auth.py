@@ -87,25 +87,29 @@ def setup_page(error=""):
     return SETUP_HTML.replace(ERROR_MARK, error)
 
 
-def login_cookie_headers(token):
+def login_cookie_headers(token, secure=False):
     return {
-        "Set-Cookie": "%s=%s; Path=/; HttpOnly; SameSite=Lax" % (COOKIE_NAME, token),
+        "Set-Cookie": "%s=%s; Path=/; HttpOnly; SameSite=Lax%s"
+                      % (COOKIE_NAME, token, "; Secure" if secure else ""),
         "Location": "/",
     }
 
 
-def session_cookie_headers(value, max_age=None):
+def session_cookie_headers(value, max_age=None, secure=False):
     extra = ""
     if max_age:
         extra = "; Max-Age=%d" % int(max_age)
+    if secure:
+        extra += "; Secure"          # HTTPS(역방향 프록시)일 때만 — HTTP 직접 접속도 계속 동작하게
     return {
         "Set-Cookie": "%s=%s; Path=/; HttpOnly; SameSite=Lax%s" % (SESSION_COOKIE, value, extra),
         "Location": "/",
     }
 
 
-def clear_cookie_headers():
+def clear_cookie_headers(secure=False):
     return {
-        "Set-Cookie": "%s=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax" % SESSION_COOKIE,
+        "Set-Cookie": "%s=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax%s"
+                      % (SESSION_COOKIE, "; Secure" if secure else ""),
         "Location": "/",
     }

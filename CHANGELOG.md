@@ -1,3 +1,25 @@
+## v1.8.2 — 2026-11-07
+
+### 새 기능 — HTTPS(DSM 역방향 프록시) 대응
+NAS 의 DSM 리버스 프록시(`https://sw20103.synology.me:8443` → `127.0.0.1:8090`) 뒤에서도
+쿠키와 클라이언트 IP 가 올바르게 동작하도록 정리했다.
+
+- **Secure 쿠키** — `X-Forwarded-Proto: https`(또는 TLS 직접)일 때만 `Set-Cookie` 에 `; Secure` 를 붙인다.
+  HTTP 직접 접속(`http://192.168.0.4:8090`)은 **그대로 동작**한다(Secure 를 항상 붙이면 쿠키가 버려져 로그인 루프가 된다).
+  - 대상: `mr_session`(계정 로그인) · `mr_auth`(토큰) · 로그아웃 쿠키
+- **실제 클라이언트 IP** — 피어가 `127.0.0.1`/`::1` 이면 `X-Forwarded-For` 첫 값을 쓴다.
+  - 프록시 뒤에서는 모든 요청이 127.0.0.1 로 보여 **로그인 실패 잠금(5회/60초)이 전원 공유**되던 문제 해결
+  - `login failed: admin (192.168.0.1)` 처럼 **실사용자 IP** 가 로그에 남는다
+- 검사 2건 추가: `http.secure-cookie-flag` · `http.forwarded-ip`
+
+### 실측 (운영)
+```
+curl https://sw20103.synology.me:8443/api/login  → Set-Cookie: mr_auth=…; HttpOnly; SameSite=Lax; Secure
+curl http://192.168.0.4:8090/api/login           → Set-Cookie: mr_auth=…; HttpOnly; SameSite=Lax     (Secure 없음 = 정상)
+프록시 경유 실패 로그인                            → [webui] login failed: admin (192.168.0.1)   ← 실제 IP
+컨테이너 selftest                                → 126/126 PASS
+```
+
 ## v1.8.1 — 2026-11-07
 
 ### 수정 — 셀프테스트가 **라이브 config.json 을 덮어쓰던** 문제 (컨테이너 실행 시)

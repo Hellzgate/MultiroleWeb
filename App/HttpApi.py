@@ -7,6 +7,7 @@ realpath 로 폴더 이탈을 막는다. 나머지 경로는 /api/* 라우터로
 
 import json
 import os
+import ssl
 import re
 import threading
 import time
@@ -92,6 +93,25 @@ class Handler(BaseHTTPRequestHandler):
     @property
     def app(self):
         return CTX.get()
+
+    def _client_ip(self):
+        """실제 클라이언트 IP. DSM 역방향 프록시 뒤(피어=127.0.0.1)면 X-Forwarded-For 첫 값."""
+        peer = self.client_address[0] if self.client_address else "?"
+        if peer in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            xff = self.headers.get("X-Forwarded-For") or ""
+            first = xff.split(",")[0].strip()
+            if first:
+                return first
+        return peer
+
+    def _is_secure(self):
+        """HTTPS 로 들어왔는지(TLS 직접 또는 프록시의 X-Forwarded-Proto)."""
+        try:
+            if isinstance(self.connection, ssl.SSLSocket):
+                return True
+        except Exception:                  # noqa: BLE001
+            pass
+        return (self.headers.get("X-Forwarded-Proto") or "").strip().lower() == "https"
 
     def _authed(self):
         """①세션 쿠키(관리자 계정) ②비상용 토큰. MR_AUTH 로 모드 결정."""
@@ -474,7 +494,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._log("admin account created: %s" % auth.data.get("id"))
             self._send(302, b"", "text/plain",
-                       session_cookie_headers(auth.issue(), SESSION_TTL))
+                       session_cookie_headers(auth.issue(), SESSION_TTL, secure=self._is_secure()))
             return
 
         if path == "/api/login":
@@ -482,7 +502,7 @@ class Handler(BaseHTTPRequestHandler):
             form = urllib.parse.parse_qs(body)
             st = self.app.st
             auth = self.app.auth
-            ip = self.client_address[0] if self.client_address else "?"
+            ip = self._client_ip()
             # ① 관리자 계정 로그인
             admin_id = (form.get("id") or [""])[0]
             pw = (form.get("pw") or [""])[0]
@@ -497,7 +517,8 @@ class Handler(BaseHTTPRequestHandler):
                     auth.clear_fails(ip)
                     self._log("login ok: %s" % admin_id)
                     self._send(302, b"", "text/plain",
-                               session_cookie_headers(auth.issue(), SESSION_TTL))
+                               session_cookie_headers(auth.issue(), SESSION_TTL,
+                                                      secure=self._is_secure()))
                 else:
                     auth.note_fail(ip)
                     self._log("login failed: %s (%s)" % (admin_id, ip))
@@ -506,14 +527,15 @@ class Handler(BaseHTTPRequestHandler):
             # ② 비상용 토큰 로그인
             given = (form.get("token") or [""])[0]
             if getattr(st, "auth_mode", "both") != "account" and matches(given, st.token):
-                self._send(302, b"", "text/plain", login_cookie_headers(given))
+                self._send(302, b"", "text/plain",
+                           login_cookie_headers(given, secure=self._is_secure()))
             else:
                 self._send(403, login_page("아이디 또는 비밀번호가 올바르지 않습니다."),
                            STATIC_TYPES[".html"])
             return
 
         if path == "/api/logout":
-            self._send(302, b"", "text/plain", clear_cookie_headers())
+            self._send(302, b"", "text/plain", clear_cookie_headers(secure=self._is_secure()))
             return
 
         if not self._guard():
