@@ -153,8 +153,21 @@ MR.frontPanel = {
       return;
     }
     MR.frontPanel.render(r.data);
-    MR.$('frontHint').textContent = (r.data.enabled ? '프론트 :' + r.data.frontPort + ' ' : '프론트 꺼짐 ') +
+    var hint = (r.data.enabled ? '프론트 :' + r.data.frontPort + ' ' : '프론트 꺼짐 ') +
       '· 금지목록 ' + (r.data.banlists || []).length + '개 · 파일 ' + (r.data.path || '');
+    var b = await MR.api('GET', '/api/bot');
+    if (b.status === 200 && b.data) {
+      if (!b.data.enabled) {
+        hint += ' · 봇 꺼짐';
+      } else if (b.data.error) {
+        hint += ' · 봇 서비스 연결 실패';
+      } else {
+        var s = b.data.status || {};
+        var run = (s.bots || []).length;
+        hint += ' · 봇 ' + run + '/' + (s.max || 0) + ' 실행 중 (덱 ' + (s.decks || 0) + '개)';
+      }
+    }
+    MR.$('frontHint').textContent = hint;
   },
 
   save: async function () {

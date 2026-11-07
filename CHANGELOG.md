@@ -1,5 +1,19 @@
 # 변경 기록 (Multirole Web Control Panel)
 
+## v1.3.0 — 2026-11-07
+
+### 새 기능 — **서버 안에서 봇과 대전** (`bot` / `b`)
+- `Bot/botd.py` + `Bot/Dockerfile`: **Mono 6.12 + WindBot** 컨테이너(`multirole-bot`). 방 번호로 입장, 방이 사라지면 자동 종료.
+- 프론트: 비밀번호 칸이 ``bot`` / ``b`` / ``b:<덱이름>`` 이면 그 방에 봇을 자동 투입 (`App/MercuryFront.py`, `MR_BOT_URL`)
+- 봇 카드 DB 는 서버의 `sync/databases/*.cdb` **15개를 `DbPaths` 로 그대로** 사용(병합 파일 불필요)
+- 패널 `/api/bot` + 상태줄 `봇 N/2 실행 중 (덱 53개)`
+- 메뉴얼 `MANUAL-room-rules.md` **§9 봇과 대전하기** — **부를 수 있는 봇 49종 표** 포함
+- 환경변수: `MR_BOT_URL` · `MR_BOT_MAX`(기본 2) · `MR_BOT_DECK` · `MR_BOT_NAME`
+
+### 실측
+- Mono 6.12 에서 WindBot 기동 · 15 cdb 로드 · 레이즈문 실행기 · 대사 정상, **CPU 0.24% / RAM 39MB**
+- ``bot`` → 2초 내 `Raisemoon` 입장 · ``b:SunGodTimeWizard`` → `SunGodTimeWizard` 입장 · 방 종료 후 **자동 종료 확인**
+- 자체검사 79/79 PASS
 ## v1.2.0 — 2026-11-07
 
 ### 새 기능 — 머큐리 프론트 (LAN 클라이언트 → Multirole 방)

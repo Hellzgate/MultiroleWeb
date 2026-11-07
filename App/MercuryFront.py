@@ -24,6 +24,7 @@ Multirole 은
 """
 
 import json
+import re
 import socket
 import struct
 import threading
@@ -258,6 +259,10 @@ class MercuryFront(object):
                         self.log("[front] %s room created '%s' id=%d"
                                  % (tag, name or self.st.front_autoroom, rid))
                         self._index_at = 0.0            # 목록 캐시 무효화
+                        want = st.get("bot_deck")
+                        if want and not st.get("bot_spawned"):
+                            st["bot_spawned"] = True
+                            self._spawn_bot(rid, want)
                     elif typ == 0x20:
                         st["entered"] = True
                     elif typ == 0x02 and len(fr) >= 6 and st.get("sent_join") \
@@ -351,12 +356,20 @@ class MercuryFront(object):
                         st["spec"] = spec
                         st["pending_name"] = spec["name"]
                         st["joined"] = True
+                        bot_deck = self._bot_trigger(spec["name"])
+                        if bot_deck:
+                            st["bot_deck"] = bot_deck
+                            st["bot_spawned"] = False
+                            self.log("[front] 봇 트리거 '%s' → deck=%s" % (spec["name"], bot_deck))
                         rid = self._resolve_room(game_id, spec["name"])
                         if rid:
                             upstream.sendall(build_join(rid, spec["password"]))
                             st["sent_join"] = True
                             self.joined += 1
                             self.log("[front] %s join '%s' -> id=%d" % (tag, spec["name"], rid))
+                            if st.get("bot_deck") and not st.get("bot_spawned"):
+                                st["bot_spawned"] = True
+                                self._spawn_bot(rid, st["bot_deck"])
                         else:
                             upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
                             st["created_here"] = True
@@ -370,6 +383,46 @@ class MercuryFront(object):
                 self.log("[front] %s client pump error: %s" % (tag, exc))
         _close(upstream)
         _close(client)
+
+    # 덱 이름은 대소문자를 구분하므로 **원문에서** 뽑아낸다(매칭만 무시).
+    BOT_TRIGGER = re.compile(r"^(?:b|bot)(?::([A-Za-z0-9_\-]+))?$", re.IGNORECASE)
+
+    def _bot_trigger(self, name):
+        """방 이름이 b / bot / b:<deck> 이면 봇 덱 이름을 돌려준다(아니면 None)."""
+        if not getattr(self.st, "bot_enabled", False):
+            return None
+        m = self.BOT_TRIGGER.match((name or "").strip())
+        if not m:
+            return None
+        deck = (m.group(1) or self.st.bot_deck or "raisemoon").strip()
+        return deck
+
+    def _spawn_bot(self, room_id, deck):
+        """봇 컨트롤러에 '이 방에 붙어라' 요청(비동기, 실패해도 대전은 계속)."""
+        if not room_id:
+            return
+        url = "%s/start" % self.st.bot_url
+        # 기본 덱이면 지정한 봇 이름, 다른 덱을 부르면 덱 이름을 그대로 쓴다
+        name = self.st.bot_name if deck == self.st.bot_deck else deck
+        body = json.dumps({"roomId": int(room_id), "deck": deck, "name": name},
+                          ensure_ascii=False).encode("utf-8")
+
+        def worker():
+            try:
+                req = urllib.request.Request(url, data=body, method="POST",
+                                             headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read().decode("utf-8", "replace") or "{}")
+                if data.get("error"):
+                    self.log("[front] 봇 실패 room=%s deck=%s: %s"
+                             % (room_id, deck, data["error"]))
+                else:
+                    self.log("[front] 봇 투입 room=%s deck=%s pid=%s"
+                             % (room_id, deck, data.get("pid", "-")))
+            except Exception as exc:
+                self.log("[front] 봇 요청 실패 room=%s: %s" % (room_id, exc))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _banlist_hash(self, spec):
         """선택한 금지/제한 목록의 해시(없으면 0 = N/A)."""

@@ -117,6 +117,12 @@ class Settings(object):
         self.front_autoroom = os.environ.get("MR_FRONT_AUTOROOM", "lobby")
         # 모든 프레임을 로그에 남긴다(문제 진단용). 평시엔 꺼 둔다.
         self.front_debug = os.environ.get("MR_FRONT_DEBUG", "0") != "0"
+        # ── 봇 컨트롤러 (multirole-bot 컨테이너) ──────────────────────────
+        # 비밀번호 칸에 bot / b / b:<deck> 을 쓰면 그 방에 WindBot 을 붙인다.
+        self.bot_url = (os.environ.get("MR_BOT_URL") or "").strip().rstrip("/")
+        self.bot_enabled = bool(self.bot_url) and os.environ.get("MR_BOT_ENABLE", "1") != "0"
+        self.bot_deck = (os.environ.get("MR_BOT_DECK") or "raisemoon").strip()
+        self.bot_name = (os.environ.get("MR_BOT_NAME") or "Raisemoon").strip()
         # ── 방 규칙 기본값 (LAN 클라이언트가 만드는 방) ──────────────────
         # 우선순위: BASE_DEFAULTS < 환경변수(MR_ROOM_*) < front.json(웹 패널)
         persist_dir = os.path.dirname(self.config_persist) if self.config_persist else self.base

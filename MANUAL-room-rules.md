@@ -176,4 +176,81 @@ EDOPro 는 시작할 때 `repositories\<저장소>\lflists\*.conf` 를 **자동�
 > 목록을 쓰지 않으려면 패널에서 `(사용 안 함 — N/A)` 를 고르면 됩니다.
 > 서버는 `sync/banlists` 저장소를 자동 갱신하므로, 새 목록이 올라오면 ZIP 을 다시 받으면 됩니다.
 
+---
 
+
+## 9. 봇과 대전하기 (`bot` / `b`)
+
+비밀번호 칸에 **`bot`** 또는 **`b`** 를 넣고 들어가면, 그 방에 **WindBot(서버 안에서 실행)** 이 자동으로 입장합니다.
+같은 NAS 안에서 돌기 때문에 **PC 를 켜 둘 필요가 없고**, 봇이 내 PC 자원을 쓰지도 않습니다.
+
+| 입력 | 결과 |
+|---|---|
+| `bot` / `b` | 기본 봇(레이즈문 AI, 덱 `raisemoon`) |
+| `b:티아라멘츠` | 그 덱의 봇 (아래 표의 `b:덱이름`) |
+| `bot#1234` | 비밀번호 1234 인 방 + 봇 |
+| `b:ABC#1234` | 덱 ABC + 비밀번호 |
+
+- 방 이름은 **입력한 그대로**(`bot`, `b:ABC` …)가 되고, 같은 이름을 넣은 사람끼리 같은 방입니다.
+- 봇은 **방 번호로 입장**하므로 이름 충돌·중복 입장이 없습니다.
+- 내가 나가서 방이 사라지면 **봇도 자동 종료**됩니다(최대 10초 내).
+- 동시에 부를 수 있는 봇은 **2마리**까지(설정 `MR_BOT_MAX`).
+
+### 부를 수 있는 봇 목록 (49종)
+
+| 덱 이름 | 봇 이름 | 난이도 | 부르는 법 |
+|---|---|---|---|
+| `ABC` | ABC-드래곤 버스터 | 어려움 | `b:ABC` |
+| `Altergeist` | 얼터가이스트 | 어려움 | `b:Altergeist` |
+| `Blue-Eyes` | 푸른 눈의 백룡 | 보통 | `b:Blue-Eyes` |
+| `BlueEyesMaxDragon` | 푸른 눈의 카오스 MAX 드래곤 | 보통 | `b:BlueEyesMaxDragon` |
+| `Brave` | 용사 하리파이버 | 어려움 | `b:Brave` |
+| `Burn` | 풀 번 | 쉬움 | `b:Burn` |
+| `ChainBurn` | 체인 번 | 쉬움 | `b:ChainBurn` |
+| `ST1732` | AI#ST1732 (사이버스족 굿 스터프) | 보통 | `b:ST1732` |
+| `DarkMagician` | 블랙 매지션 | 어려움 | `b:DarkMagician` |
+| `Dogmatika` | 드래그마 | 어려움 | `b:Dogmatika` |
+| `Dragun` | 붉은 눈의 드라군 | 어려움 | `b:Dragun` |
+| `Dragunity` | 드래그니티 | 보통 | `b:Dragunity` |
+| `FamiliarPossessed` | 빙의장착 | 쉬움 | `b:FamiliarPossessed` |
+| `Lucky` | 운빨망겜 | 쉬움 | `b:Lucky` |
+| `Frog` | 개구리 | 보통- | `b:Frog` |
+| `GrenMajuThunderBoarder` | 인스펙트 보더 메타비트 | 쉬움 | `b:GrenMajuThunderBoarder` |
+| `Horus` | 호루스의 흑염룡 | 보통- | `b:Horus` |
+| `Kashtira` | 크샤트리라 | 어려움 | `b:Kashtira` |
+| `LightswornShaddoldinosour` | 공룡 섀도르 라이트로드 | 어려움 | `b:LightswornShaddoldinosour` |
+| `MathMech` | 참기 | 보통 | `b:MathMech` |
+| `MokeyMokey` | 일반 몬스터 투성이 | 보통- | `b:MokeyMokey` |
+| `MokeyMokeyKing` | 일반 몬스터 투성이 II | 보통- | `b:MokeyMokeyKing` |
+| `Orcust` | 오르페골 | 어려움 | `b:Orcust` |
+| `Phantasm` | 환황룡 메타비트 | 쉬움 | `b:Phantasm` |
+| `Qliphort` | 클리포트 | 쉬움 | `b:Qliphort` |
+| `Rank V` | 랭크 5 | 보통 | `b:Rank V` |
+| `Rainbow` | 레스큐 래빗 | 보통 | `b:Rainbow` |
+| `Level VIII` | 스크랩 싱크로 | 보통 | `b:Level VIII` |
+| `Salamangreat` | 샐러맨그레이트 | 어려움 | `b:Salamangreat` |
+| `SkyStriker` | 섬도희 | 어려움 | `b:SkyStriker` |
+| `Swordsoul` | 천위 상검 | 어려움 | `b:Swordsoul` |
+| `ThunderDragon` | Thunder Dragon | 보통 | `b:ThunderDragon` |
+| `Tearlaments` | 티아라멘츠 | 어려움 | `b:Tearlaments` |
+| `TimeThief` | 크로노다이버 | 보통 | `b:TimeThief` |
+| `Toadally Awesome` | 떡 깨구리 | 보통 | `b:Toadally Awesome` |
+| `Trickstar` | 트릭스터 | 어려움 | `b:Trickstar` |
+| `PureWinds` | WW(윈드 위치) 가스타 | 보통- | `b:PureWinds` |
+| `Witchcraft` | 위치크래프트 잔디깎기축 | 어려움 | `b:Witchcraft` |
+| `Yosenju` | 요선수 | 쉬움 | `b:Yosenju` |
+| `Zexal Weapons` | ZW(제알 웨폰) | 보통 | `b:Zexal Weapons` |
+| `Zoodiac` | 십이수 | 어려움 | `b:Zoodiac` |
+| `raisemoon` | AI_raiseMoon | 어려움 | `b:raisemoon` |
+| `Blackwing` | [AI] Blackwing (port) | 보통- | `b:Blackwing` |
+| `Evilswarm` | [AI] Evilswarm (port) | 보통- | `b:Evilswarm` |
+| `Graydle` | [AI] Graydle (port) | 보통- | `b:Graydle` |
+| `Nekroz` | [AI] Nekroz (port) | 보통- | `b:Nekroz` |
+| `OldSchool` | [AI] OldSchool (port) | 보통 | `b:OldSchool` |
+| `NekrozRules` | [AI] Nekroz (편집 가능) | 보통 | `b:NekrozRules` |
+| `SunGodTimeWizard` | AI_SunGodTimeWizard | 어려움 | `b:SunGodTimeWizard` |
+
+> 덱 이름은 **대소문자를 구분**합니다(표의 `덱 이름` 칸 그대로). 없는 덱을 부르면 방은 만들어지고 봇만 오지 않습니다.
+> 난이도는 `bots.json` 의 difficulty 값(0 쉬움 ~ 3 어려움)을 옮긴 것입니다.
+> 봇 상태는 웹 패널 「LAN 방 기본값」 카드 하단 상태줄(`봇 0/2 실행 중 (덱 53개)`)에서 확인합니다.
+> 설정: `MR_BOT_URL`(컨트롤러 주소) · `MR_BOT_MAX`(동시 봇 수) · `MR_BOT_DECK`(기본 덱) · `MR_BOT_NAME`(봇 이름)

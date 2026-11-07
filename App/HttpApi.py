@@ -264,6 +264,20 @@ class Handler(BaseHTTPRequestHandler):
             self._lflists_zip()
             return
 
+        if path == "/api/bot":
+            st = self.app.st
+            out = {"enabled": st.bot_enabled, "url": st.bot_url,
+                   "deck": st.bot_deck, "name": st.bot_name, "status": None, "error": None}
+            if st.bot_enabled:
+                try:
+                    req = urllib.request.Request(st.bot_url + "/status")
+                    with urllib.request.urlopen(req, timeout=3) as resp:
+                        out["status"] = json.loads(resp.read().decode("utf-8", "replace") or "{}")
+                except Exception as exc:  # noqa: BLE001
+                    out["error"] = str(exc)
+            self._json(out)
+            return
+
         if path == "/api/logs":
             try:
                 n = int((qs.get("tail") or ["300"])[0])
