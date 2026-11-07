@@ -379,6 +379,14 @@ class Handler(BaseHTTPRequestHandler):
                                        status, decks, rooms, err))
             return
 
+        if path == "/api/auth/backups":
+            ab = getattr(self.app, "authbackup", None)
+            if ab is None:
+                self._json({"items": [], "dir": None})
+                return
+            self._json(ab.status())
+            return
+
         if path == "/api/access":
             try:
                 n = int((qs.get("tail") or ["100"])[0])
@@ -522,6 +530,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": err}, 400)
                 return
             self._log("admin password changed")
+            ab = getattr(self.app, "authbackup", None)
+            if ab is not None:
+                ab.backup("password-change")
             self._json({"ok": True})
             return
 
@@ -537,6 +548,16 @@ class Handler(BaseHTTPRequestHandler):
             self.app.sup.want = False
             threading.Thread(target=lambda: self.app.sup.stop(graceful=True), daemon=True).start()
             self._json({"ok": True})
+            return
+
+        if path == "/api/auth/backup":
+            ab = getattr(self.app, "authbackup", None)
+            if ab is None:
+                self._json({"error": "백업기가 없습니다"}, 503)
+                return
+            res = ab.backup("manual")
+            self._log("auth backup: %s" % res)
+            self._json(res)
             return
 
         if path == "/api/rooms/close":

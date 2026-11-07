@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 """부트스트랩: 설정 → 앱 구성 → 자식 기동 → HTTP 서버 → 종료 처리."""
 
+import io
+import json
 import os
 import signal
 import sys
 import threading
+import time
 
 from . import VERSION
 from .AccessLog import AccessLog
+from .AuthBackup import AuthBackup
 from .AuthStore import AuthStore
 from .Context import CTX
 from .DuelProxy import DuelProxy
@@ -30,6 +34,7 @@ class App(object):
         self.proxy2 = DuelProxy(st, self.sup.log, label="relay", drop_types=set(),
                                 target=st.proxy2_target)
         self.access = AccessLog(st)
+        self.authbackup = AuthBackup(st)
         self.front = MercuryFront(st, self.sup.log)
         self.front.access = self.access
         self.ghost = None
@@ -42,6 +47,37 @@ def build_app(st):
 
 
 def main(argv):
+    if "--restore-auth" in argv:
+        import shutil
+        st = Settings()
+        try:
+            src = argv[argv.index("--restore-auth") + 1]
+        except IndexError:
+            print("사용법: webui.py --restore-auth <auth-....json>")
+            return 2
+        if not os.path.isfile(src):
+            print("파일 없음: %s" % src)
+            return 2
+        try:
+            with io.open(src, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not data.get("hash") or not data.get("secret"):
+                print("auth.json 형식이 아닙니다")
+                return 2
+        except (OSError, ValueError) as exc:
+            print("읽기 실패: %s" % exc)
+            return 2
+        if os.path.isfile(st.auth_path):
+            shutil.copy2(st.auth_path, st.auth_path + ".bak-" + time.strftime("%Y%m%d-%H%M%S"))
+        shutil.copy2(src, st.auth_path)
+        try:
+            os.chmod(st.auth_path, 0o600)
+        except OSError:
+            pass
+        print("복원 완료: %s → %s" % (src, st.auth_path))
+        print("패널을 재시작해야 적용됩니다.")
+        return 0
+
     if "--selftest" in argv:
         from .SelfTest import selftest
 
@@ -64,6 +100,11 @@ def main(argv):
 
     def on_term(signum, frame):
         app.sup.log("[webui] signal %s -> shutting down" % signum)
+        if getattr(app, "authbackup", None):
+            try:
+                app.authbackup.stop()
+            except Exception:
+                pass
         if getattr(app, "ghost", None):
             try:
                 app.ghost.stop()
@@ -104,6 +145,7 @@ def main(argv):
 
     app.ghost = GhostReaper(st, app, app.sup.log)
     app.ghost.start()
+    threading.Thread(target=app.authbackup.run, daemon=True, name="auth-backup").start()
 
     httpd = PanelServer((st.bind, st.port), Handler)
     app.sup.log("[webui] listening on http://%s:%d" % (st.bind, st.port))

@@ -1,3 +1,26 @@
+## v1.8.0 — 2026-11-07
+
+### 새 기능 — 계정(auth.json) 자동 백업 (A: NAS 안 + B: PC 로 당겨오기)
+`auth.json` 에는 PBKDF2 해시와 **세션 서명 키(secret)** 가 있어, 잃으면 계정을 새로 만들어야 하고
+유출되면 로그인 없이 쿠키를 위조할 수 있다.
+
+**A. 컨테이너 안 자동 백업** (`App/AuthBackup.py`)
+- `_auth-backups/`(0700) 에 `auth-YYYYmmdd-HHmmss.json`(0600), **원자적 쓰기 + JSON 검증 후에만 교체**
+- **24시간 주기**(`MR_AUTH_BACKUP_HOURS`) + **비밀번호 변경 시 즉시**, 최근 **30개** 롤링(`MR_AUTH_BACKUP_KEEP`)
+- API `GET /api/auth/backups` · `POST /api/auth/backup` · 설정 탭에 **[지금 백업]** 카드(목록·크기·시각)
+- 복원 CLI: `python3 webui.py --restore-auth <auth-....json>` (현재 파일을 `.bak-<시각>` 로 보관 후 교체)
+
+**B. PC 로 당겨오기** (`tools/pull-auth.ps1` + 예약 작업 `MultiroleAuthBackup`)
+- NAS 컨테이너에서 `auth.json` 을 읽어 JSON 검증 후 `D:\rea-out\multirole\_backups\auth\` 에 저장
+- **내용이 같으면 저장하지 않음**, 최근 30개 + 90일 보관, `pull.log` 200줄
+- 예약 작업: **매일 22:00 · 사용자 권한(최소) · 놓치면 다음 로그온에 1회 · 절전 깨우기 없음 · 배터리일 때 실행 안 함**
+- 실측 비용: 스크립트 1회 **536 ms**, 전송 **299 B**, 30일 **약 9 KB**
+
+### 검증
+- `--selftest` **123/123** (추가: `auth.backup` · `auth.backup-rotate` · `http.auth-backups`)
+- 실서버: `_auth-backups/` 0700·0600 생성, 기동 직후 `auto` 백업 1건, 수동 API 1건, PC 당겨오기는 **변경 없음 → SKIP**
+- 예약 작업 등록 확인: `Next Run 26-11-07 22:00 · Last Result 0`
+
 ## v1.7.5 — 2026-11-07
 
 ### 다듬기 — 빈 JOIN 을 무시할 때 **클라이언트에 오류를 돌려준다**

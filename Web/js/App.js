@@ -24,6 +24,7 @@ MR.app = {
     MR.header.bind();
     MR.configForm.bind();
     MR.frontPanel.bind();
+    MR.authPanel.bind();
     MR.statusPanel.bind();
     MR.logPanel.bind();
     MR.replayPanel.bind();
@@ -36,6 +37,7 @@ MR.app = {
     MR.frontPanel.load();
     MR.frontPanel.loadRooms();
     MR.frontPanel.loadAccess();
+    MR.authPanel.load();
     MR.header.refresh();
     setInterval(MR.header.refresh, 5000);
   }

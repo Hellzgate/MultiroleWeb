@@ -673,6 +673,30 @@ def selftest():
     check("log.async", any("selftest-log-49" in x for x in lw.tail(100)),
           str(lw.tail(3))[:160])
 
+    # -- 계정 백업 --------------------------------------------------------- #
+    from .AuthBackup import AuthBackup
+
+    with open(st.auth_path, "w", encoding="utf-8") as f:      # 픽스처에는 계정 파일이 없다
+        f.write(json.dumps({"version": 1, "id": "t", "hash": "00" * 32,
+                            "salt": "11" * 16, "iterations": 1000, "secret": "22" * 32}))
+    ab = AuthBackup(st)
+    r1 = ab.backup("selftest")
+    items = ab.list()
+    check("auth.backup", r1.get("ok") and items and items[0]["name"].startswith("auth-"),
+          json.dumps(r1, ensure_ascii=False)[:160])
+
+    ab.keep = 2
+    time.sleep(1.1)                       # 파일명 초 단위 구분
+    ab.backup("selftest2")
+    time.sleep(1.1)
+    ab.backup("selftest3")
+    check("auth.backup-rotate", len(ab.list()) <= 2, str([x["name"] for x in ab.list()]))
+
+    code, body = call("GET", "/api/auth/backups")
+    ab_body = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.auth-backups", code == 200 and isinstance(ab_body.get("items"), list),
+          body[:140].decode("utf-8", "replace"))
+
     code, body = call("GET", "/api/access?tail=10")
     acc_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.access", code == 200 and isinstance(acc_body.get("items"), list),

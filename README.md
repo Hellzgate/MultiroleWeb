@@ -288,6 +288,21 @@ python3 webui.py --selftest
 - 한계: 같은 공유기(NAT) 뒤 두 명은 실IP가 같다(별칭도 같음). 이때는 로그의 **포트**로 구분한다.
   멀티롤 자체 로그(`roomLogging`)에는 **별칭**만 찍힌다.
 
+### 계정 백업 (v1.8.0+)
+
+`auth.json` 은 잃으면 계정을 새로 만들어야 하고(세션 서명 키 포함), 유출되면 쿠키 위조가 가능합니다.
+
+| 위치 | 방법 | 보관 |
+|---|---|---|
+| **NAS (자동)** | 컨테이너가 24시간마다 + **비밀번호 변경 시** `_auth-backups/` 에 저장 (0700/0600) | 최근 **30개** |
+| **PC (자동)** | 예약 작업 `MultiroleAuthBackup` → `tools/pull-auth.ps1` (매일 22:00, 내용 같으면 SKIP) | 최근 30개 · 90일 |
+| **릴리스** | `tools/backup.ps1 -AuthFile …` (ZIP 밖에 보관) | 릴리스마다 |
+
+- 수동: 패널 설정 탭 **[지금 백업]** 또는 `POST /api/auth/backup` · 목록 `GET /api/auth/backups`
+- 복원: `docker exec multirole-web python3 /app/webui.py --restore-auth /dyxel/multirole/_auth-backups/auth-....json`
+  → 현재 파일은 `.bak-<시각>` 으로 보관되고, **재시작 후** 적용됩니다
+- ⚠ 폴더를 공유/클라우드 동기화에 올리지 마세요(평문 비밀값). 필요하면 암호화 후 동기화.
+
 ### 로그인 — 패널 관리자 계정 (v1.4.3+)
 
 - **패널 전용 계정**입니다(DSM 계정과 별개, 같은 아이디를 써도 무관).
