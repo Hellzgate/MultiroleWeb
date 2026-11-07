@@ -341,6 +341,18 @@ class MercuryFront(object):
 
                     self._log_frame(tag, "->", fr)
 
+                    if typ == 0x11:                        # CREATE_GAME(서버모드) → 방 이름(notes) 기억
+                        try:
+                            name_u = parse_utf16(body[68:108])
+                            notes = body[148:348].split(b"\x00", 1)[0].decode("utf-8", "ignore").strip()
+                        except Exception:
+                            name_u, notes = "", ""
+                        st["pending_name"] = notes or name_u or None
+                        st["server_create"] = True
+                        upstream.sendall(fr)
+                        self.log("[front] 서버모드 방 생성 요청 '%s'" % (st["pending_name"] or ""))
+                        continue
+
                     if typ == 0x10:                        # PLAYER_INFO → 이름 기억
                         st["player"] = parse_utf16(body)
                         upstream.sendall(fr)
@@ -350,7 +362,19 @@ class MercuryFront(object):
 
                     if typ == 0x12:                        # JOIN (게임 id 또는 방 이름)
                         raw_text, game_id = self._parse_client_join(body)
-                        spec = RoomSpec.parse(raw_text, self.st.effective_room())
+                        known_id = None
+                        if game_id:
+                            idx = self._live_index()
+                            if game_id in set(idx.values()) or game_id in set(self.rooms.values()):
+                                known_id = game_id
+                        if known_id:
+                            # 서버 대전 모드: 방 번호로 들어오고, pass 필드는 **비밀번호**다
+                            spec = RoomSpec.parse("", self.st.effective_room())
+                            spec["password"] = raw_text.strip()
+                            self.log("[front] 서버모드 입장 id=%d (pass=%s)"
+                                     % (known_id, "있음" if spec["password"] else "없음"))
+                        else:
+                            spec = RoomSpec.parse(raw_text, self.st.effective_room())
                         for warn in spec["warnings"]:
                             self.log("[front] %s 옵션 무시: %s" % (tag, warn))
                         st["spec"] = spec
