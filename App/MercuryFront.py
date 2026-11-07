@@ -361,6 +361,10 @@ class MercuryFront(object):
                             st["bot_deck"] = bot_deck
                             st["bot_spawned"] = False
                             self.log("[front] 봇 트리거 '%s' → deck=%s" % (spec["name"], bot_deck))
+                            if getattr(self.st, "bot_nocheck", False):
+                                # 봇 방은 덱 내용 검사를 끈다(서버 DB 에 없는 카드가 섞인 봇 덱 보호)
+                                spec["opts"]["nocheck"] = 1
+                                self.log("[front] 봇 방 → 덱 확인하지 않기 ON")
                         rid = self._resolve_room(game_id, spec["name"])
                         if rid:
                             upstream.sendall(build_join(rid, spec["password"]))

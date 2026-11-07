@@ -123,6 +123,8 @@ class Settings(object):
         self.bot_enabled = bool(self.bot_url) and os.environ.get("MR_BOT_ENABLE", "1") != "0"
         self.bot_deck = (os.environ.get("MR_BOT_DECK") or "raisemoon").strip()
         self.bot_name = (os.environ.get("MR_BOT_NAME") or "Raisemoon").strip()
+        # 봇 방(bot / b:<덱>)만 덱 내용 검사를 끈다(봇 덱에 서버 DB 에 없는 카드가 있어도 시작 가능)
+        self.bot_nocheck = os.environ.get("MR_BOT_NOCHECK", "1") != "0"
         # ── 방 규칙 기본값 (LAN 클라이언트가 만드는 방) ──────────────────
         # 우선순위: BASE_DEFAULTS < 환경변수(MR_ROOM_*) < front.json(웹 패널)
         persist_dir = os.path.dirname(self.config_persist) if self.config_persist else self.base
