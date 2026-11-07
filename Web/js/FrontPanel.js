@@ -176,6 +176,9 @@ MR.frontPanel = {
   },
 
   bind: function () {
+    /* 도움말의 서버 주소는 보고 있는 주소로 채운다(저장소에는 자리표시자만) */
+    var addr = MR.$('frontAddr');
+    if (addr && location.hostname) addr.textContent = location.hostname;
     MR.$('btnFrontSave').onclick = function () { MR.frontPanel.save(); };
     MR.$('btnFrontReload').onclick = function () { MR.frontPanel.load(); };
   }
