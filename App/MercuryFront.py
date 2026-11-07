@@ -635,6 +635,12 @@ class MercuryFront(object):
                             if busy:
                                 self.log("[front] %s 빈 JOIN 무시 — 같은 IP 가 이미 방 %s 에 있음"
                                          % (tag, busy))
+                                # 클라이언트가 무응답으로 기다리지 않도록 '방을 찾을 수 없음'을 돌려준다
+                                # (STOC ErrorMsg: msg u8 + code u32 + pad3 = 8B)
+                                try:
+                                    _send(client, frame(0x02, bytes([1]) + struct.pack("<I", 0x09000000) + b"\x00" * 3))
+                                except OSError:
+                                    pass
                                 continue
                         if rid:
                             _send(upstream, build_join(rid, spec["password"]))
