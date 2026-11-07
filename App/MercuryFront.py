@@ -436,13 +436,25 @@ class MercuryFront(object):
             return 0
 
     def _resolve_room(self, game_id, name):
-        """gameid 가 실제로 존재하는 방이면 그대로, 아니면 이름→번호, 없으면 None(생성)."""
+        """gameid 가 실제로 존재하는 방이면 그대로, 아니면 이름→번호, 없으면 None(생성).
+
+        이름이 **숫자만**이면 방 번호로도 시도한다(서버모드 방의 Notes 가 비어 있을 때 대비).
+        """
         index = self._live_index()
         if game_id:
             if game_id in set(index.values()) or game_id in set(self.rooms.values()):
                 return game_id
-        if name.strip():
-            return self._find_room(name)
+        text = (name or "").strip()
+        if text:
+            rid = self._find_room(text)
+            if rid:
+                return rid
+            if text.isdigit():
+                cand = int(text)
+                if cand in set(index.values()) or cand in set(self.rooms.values()):
+                    self.log("[front] 숫자 '%s' → 방 번호 %d 로 입장" % (text, cand))
+                    return cand
+            return None
         return self._find_room(self.st.front_autoroom or "lobby")
 
     def _arm_autocreate(self, upstream, tag, st):
