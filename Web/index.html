@@ -88,12 +88,24 @@
         서버 대전 목록에 보이는 방입니다. <b>봇 투입</b>을 누르면 그 방에 WindBot 이 들어갑니다
         (이미 만든 방에도 가능 — 봇 트리거가 걸리지 않은 경우 여기서 붙이세요).
       </p>
-      <table><thead><tr><th>번호</th><th>방 이름(notes)</th><th>인원</th><th>상태</th><th>봇 덱</th><th></th></tr></thead>
+      <table><thead><tr><th>번호</th><th>방 이름(notes)</th><th>인원</th><th>접속 IP</th><th>상태</th><th>봇 덱</th><th></th></tr></thead>
       <tbody id="roomBotBody"></tbody></table>
       <div class="toolbar" style="margin:10px 0 0">
         <button id="btnRoomRefresh">방 목록 새로고침</button>
+        <button id="btnAccessReload" class="sm">접속 이력 새로고침</button>
         <span class="muted" id="roomBotHint"></span>
       </div>
+      <details style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
+        <summary style="cursor:pointer;color:#bcd7f7;font-size:13px">
+          📋 접속 이력 (누가 · 어느 방 · 왜 끊겼나) — 최근 100건
+        </summary>
+        <p class="muted" style="margin:8px 0">
+          <code>logs/access.log</code> 에 JSONL 로 남습니다(20MB × 10개, 30일). 실IP + 멀티롤이 본 별칭(127.0.a.b)이 함께 기록됩니다.
+        </p>
+        <table><thead><tr><th>시각</th><th>이벤트</th><th>실제 IP</th><th>별칭</th><th>방</th><th>이름</th><th>사유</th></tr></thead>
+        <tbody id="accessBody"></tbody></table>
+        <div class="muted" id="accessHint" style="margin-top:6px"></div>
+      </details>
     </div>    <div id="cfgForm"></div>
     <fieldset id="rawWrap" class="hidden">
       <legend>config.json (원본)</legend>

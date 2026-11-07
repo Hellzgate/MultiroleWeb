@@ -83,6 +83,10 @@ class Settings(object):
         self.log_path = os.path.join(self.log_dir, "multirole.log")
         self.log_max = int(os.environ.get("MR_LOG_MAX", 10 * 1024 * 1024))
         self.log_keep = int(os.environ.get("MR_LOG_KEEP", "3"))
+        # 접속 이력(access.log) — 20MB × 10개, 30일 보존
+        self.access_max = int(os.environ.get("MR_ACCESS_MAX", 20 * 1024 * 1024))
+        self.access_keep = int(os.environ.get("MR_ACCESS_KEEP", "10"))
+        self.access_days = int(os.environ.get("MR_ACCESS_DAYS", "30"))
         self.bin = os.environ.get("MR_BIN", os.path.join(".", REQUIRED_BIN))
         self.args = shlex.split(os.environ.get("MR_ARGS", ""))
         self.restart_delay = float(os.environ.get("MR_RESTART_DELAY", "3"))

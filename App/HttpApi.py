@@ -318,9 +318,17 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 total = counts.get(rid, 0)
                 humans = total - (1 if (rid in bots and total > 0) else 0)
+                ips = []
+                front = getattr(self.app, "front", None)
+                if front is not None:
+                    try:
+                        ips = front.room_ips(rid)
+                    except Exception:              # noqa: BLE001
+                        ips = []
                 slim.append({"id": rid, "notes": r.get("roomnotes"),
                              "needpass": r.get("needpass"), "started": r.get("istart") == "start",
                              "users": [u.get("name") for u in (r.get("users") or [])],
+                             "ips": ips,
                              "humans": max(0, humans),
                              "bot": bots.get(rid),
                              "ghost": rid in ghosts})
@@ -369,6 +377,24 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             self._json(Bots.build_view(st.bot_deck, st.bot_name, st.bot_enabled,
                                        status, decks, rooms, err))
+            return
+
+        if path == "/api/access":
+            try:
+                n = int((qs.get("tail") or ["100"])[0])
+            except ValueError:
+                n = 100
+            room = (qs.get("room") or [None])[0]
+            try:
+                room = int(room) if room not in (None, "") else None
+            except ValueError:
+                room = None
+            ipq = (qs.get("ip") or [None])[0] or None
+            acc = getattr(self.app, "access", None)
+            if acc is None:
+                self._json({"items": [], "path": None})
+                return
+            self._json({"items": acc.tail(n, ip=ipq, room=room), "path": acc.path})
             return
 
         if path == "/api/logs":

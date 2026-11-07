@@ -165,6 +165,7 @@ sudo docker compose up -d --build
 | POST | `/api/sync` `{"name":"scripts"}` | 해당 리포 웹훅으로 토큰 POST (git pull) |
 | GET | `/api/replays` · `/api/replay?name=` | 목록 / 다운로드(경로 탈출 차단) |
 | GET | `/api/bots` | 봇 탭 데이터 — `running` · `decks` · `rooms` · `default`(botd + 로비 병합) |
+| GET | `/api/access?tail=100&ip=&room=` | 접속 이력(JSONL) — 실IP · 멀티롤 별칭 · 방 · 사유 |
 | POST | `/api/bot/start` `{"roomId":2,"deck":"raisemoon"}` · `/api/bot/stop` · `/api/bot/stopall` | 봇 투입/중지 |
 
 인증: `WEB_TOKEN` 을 설정하면 쿠키(`mr_auth`) 또는 `X-MR-Token` 헤더가 필요합니다.
@@ -277,6 +278,15 @@ python3 webui.py --selftest
   (multirole 이 소켓을 직접 들고 있어 외부에서 끊을 수 없음).
 - 대신 multirole 입장에서 접속 IP 가 `127.0.0.1` 로 보입니다(방장 kick 시 그 방에서 IP 차단이 걸릴 수 있음 — 방이 닫히면 해제).
 - 7911 은 **내부용**이 됩니다. 외부에 열려 있으면 DSM 방화벽에서 막아도 됩니다(프론트는 localhost 로 접속).
+
+### 접속 IP 확인 (v1.7.0+)
+
+- **실제 IP** — 프론트가 기록: 설정 탭 「접속 IP」 열 · `GET /api/rooms` 의 `ips`
+- **멀티롤이 보는 주소** — 업스트림을 `127.0.a.b` **별칭**에 바인딩(실IP 해시, 고정).
+  7914 단일화로 전원이 `127.0.0.1` 로 보여 **방장 kick 이 방 전체를 막던 문제**를 없앤다.
+- **이력** — `logs/access.log`(JSONL, 20MB × 10 · 30일) · 설정 탭 「📋 접속 이력」 · `GET /api/access`
+- 한계: 같은 공유기(NAT) 뒤 두 명은 실IP가 같다(별칭도 같음). 이때는 로그의 **포트**로 구분한다.
+  멀티롤 자체 로그(`roomLogging`)에는 **별칭**만 찍힌다.
 
 ### 로그인 — 패널 관리자 계정 (v1.4.3+)
 

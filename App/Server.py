@@ -7,6 +7,7 @@ import sys
 import threading
 
 from . import VERSION
+from .AccessLog import AccessLog
 from .AuthStore import AuthStore
 from .Context import CTX
 from .DuelProxy import DuelProxy
@@ -28,7 +29,9 @@ class App(object):
         # 기록용: 외부 서버로 그대로 흘려보내며 양방향 프레임을 로그로 남긴다
         self.proxy2 = DuelProxy(st, self.sup.log, label="relay", drop_types=set(),
                                 target=st.proxy2_target)
+        self.access = AccessLog(st)
         self.front = MercuryFront(st, self.sup.log)
+        self.front.access = self.access
         self.ghost = None
 
 

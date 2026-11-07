@@ -197,6 +197,8 @@ MR.frontPanel = {
     MR.$('btnFrontReload').onclick = function () { MR.frontPanel.load(); };
     var rr = MR.$('btnRoomRefresh');
     if (rr) rr.onclick = function () { MR.frontPanel.loadRooms(); };
+    var ar = MR.$('btnAccessReload');
+    if (ar) ar.onclick = function () { MR.frontPanel.loadAccess(); };
   }
 };
 
@@ -222,6 +224,7 @@ MR.frontPanel.loadRooms = async function () {
     tr.innerHTML = '<td>' + MR.esc(room.id) + '</td>' +
       '<td>' + MR.esc(room.notes || '(이름 없음)') + '</td>' +
       '<td>' + MR.esc((room.users || []).join(', ')) + '</td>' +
+      '<td class="muted" style="font-size:11.5px">' + MR.esc((room.ips || []).join(', ') || '—') + '</td>' +
       '<td>' + (room.started ? '진행 중' : '대기') +
       (room.ghost ? ' <span class="tag err">유령</span>' : '') + '</td>';
     var tdDeck = document.createElement('td');
@@ -280,4 +283,26 @@ MR.frontPanel.botStop = async function (roomId) {
   var r = await MR.api('POST', '/api/bot/stop', { roomId: roomId });
   MR.$('roomBotHint').textContent = (r.status === 200) ? ('방 ' + roomId + ' 봇 중지') : ('중지 실패 ' + r.status);
   MR.frontPanel.loadRooms();
+};
+
+/* 접속 이력(access.log) — 최근 100건 */
+MR.frontPanel.loadAccess = async function () {
+  var body = MR.$('accessBody');
+  if (!body) return;
+  var r = await MR.api('GET', '/api/access?tail=100');
+  if (r.status !== 200 || !r.data) {
+    MR.$('accessHint').textContent = '접속 이력 조회 실패 (' + r.status + ')';
+    return;
+  }
+  var items = r.data.items || [];
+  MR.$('accessHint').textContent = items.length + '건 · ' + (r.data.path || '');
+  body.innerHTML = items.slice().reverse().map(function (x) {
+    return '<tr><td class="muted" style="font-size:11.5px">' + MR.esc((x.ts || '').replace('T', ' ')) + '</td>' +
+      '<td>' + MR.esc(x.ev || '') + '</td>' +
+      '<td>' + MR.esc(x.ip || '—') + '</td>' +
+      '<td class="muted" style="font-size:11.5px">' + MR.esc(x.pseudo || '—') + '</td>' +
+      '<td>' + MR.esc(x.room === undefined ? '—' : x.room) + '</td>' +
+      '<td>' + MR.esc(x.name || '—') + '</td>' +
+      '<td class="muted">' + MR.esc(x.why || '') + '</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="muted">기록이 없습니다.</td></tr>';
 };

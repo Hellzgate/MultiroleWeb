@@ -616,6 +616,41 @@ def selftest():
           and gr.history and gr.history[-1]["why"] == "test", json.dumps(out))
 
     # 로비(7922)가 없는 테스트 환경에서는 502 가 정상 → 200 이면 ghost 필드까지 확인
+    # -- 접속 이력 / 별칭 IP ---------------------------------------------- #
+    from .AccessLog import AccessLog
+
+    acc = AccessLog(st)
+    acc.write("connect", ip="114.200.216.10", pseudo="127.0.1.7")
+    acc.write("join", ip="114.200.216.10", pseudo="127.0.1.7", room=3, name="ComicLO")
+    acc.write("close", ip="10.0.0.9", pseudo="127.0.2.3", room=4, why="client-fin")
+    got = acc.tail(10)
+    check("access.roundtrip", len(got) == 3 and got[-1]["ev"] == "close"
+          and got[-1]["why"] == "client-fin", json.dumps(got, ensure_ascii=False)[:200])
+    check("access.filter", len(acc.tail(10, ip="10.0.0.9")) == 1
+          and len(acc.tail(10, room=3)) == 1, "")
+    acc.max_bytes = 1                       # 회전 유도
+    acc.write("connect", ip="1.2.3.4", pseudo="127.0.3.3")
+    check("access.rotate", len(acc._rotated()) >= 1, str(acc._rotated()))
+
+    from .MercuryFront import MercuryFront as _MF
+
+    class _IpSt(object):
+        bot_enabled = False
+        bot_deck = "raisemoon"
+        bot_url = "http://127.0.0.1:1"
+
+    mf2 = _MF(_IpSt(), lambda m: None)
+    p1 = mf2.pseudo_ip("114.200.216.10")
+    p2 = mf2.pseudo_ip("114.200.216.10")
+    p3 = mf2.pseudo_ip("192.168.0.50")
+    check("front.pseudo", p1 == p2 and p1 != p3 and p1.startswith("127.0.")
+          and p1 != "127.0.0.1", "%s %s %s" % (p1, p2, p3))
+
+    code, body = call("GET", "/api/access?tail=10")
+    acc_body = json.loads(body.decode("utf-8", "replace") or "{}")
+    check("http.access", code == 200 and isinstance(acc_body.get("items"), list),
+          body[:140].decode("utf-8", "replace"))
+
     code, body = call("GET", "/api/rooms")
     rooms_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.rooms-ghost", code == 502 or (code == 200 and "ghost" in rooms_body),

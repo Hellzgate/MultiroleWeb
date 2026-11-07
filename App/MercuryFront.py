@@ -26,6 +26,7 @@ Multirole 은
 import json
 import re
 import socket
+import zlib
 import struct
 import threading
 import time
@@ -101,6 +102,10 @@ class MercuryFront(object):
         # 방 번호별 세션 추적(유령 방 정리용). tag -> {"room": id, "client": sock, "upstream": sock}
         self._sessions = {}
         self._sess_lock = threading.Lock()
+        # 실IP → 멀티롤이 보는 별칭(127.0.a.b). 같은 사람은 항상 같은 별칭
+        self._ip_map = {}
+        self._pseudo_used = set()
+        self.access = None               # App 이 AccessLog 를 넣어준다
 
     # -- lifecycle -------------------------------------------------------- #
     def start(self, port=None):
@@ -214,9 +219,48 @@ class MercuryFront(object):
             threading.Thread(target=self._handle, args=(client, addr), daemon=True).start()
 
     # -- 세션 추적(유령 방 정리) ------------------------------------------- #
-    def _register(self, tag, client, upstream):
+    def pseudo_ip(self, ip):
+        """실제 IP → 별칭 루프백 주소(127.0.a.b). multirole 이 클라이언트별로 구분할 수 있게."""
+        ip = ip or "0.0.0.0"
         with self._sess_lock:
-            self._sessions[tag] = {"room": None, "client": client, "upstream": upstream}
+            known = self._ip_map.get(ip)
+            if known:
+                return known
+            h = zlib.crc32(ip.encode("utf-8")) & 0xFFFFFFFF
+            for attempt in range(0, 254):
+                a = 1 + ((h >> 8) + attempt) % 254
+                b = 1 + (h % 254)
+                cand = "127.0.%d.%d" % (a, b)
+                if cand not in self._pseudo_used:
+                    self._pseudo_used.add(cand)
+                    self._ip_map[ip] = cand
+                    return cand
+            return "127.0.254.254"
+
+    def ip_of(self, tag):
+        with self._sess_lock:
+            return (self._sessions.get(tag) or {}).get("ip") or ""
+
+    def pseudo_of(self, tag):
+        with self._sess_lock:
+            return (self._sessions.get(tag) or {}).get("pseudo") or ""
+
+    def room_ips(self, rid):
+        """그 방에 있는 프론트 세션들의 실제 IP(중복 제거)."""
+        rid = int(rid)
+        with self._sess_lock:
+            ips = [(i.get("ip") or "") for i in self._sessions.values() if i.get("room") == rid]
+        seen, out = set(), []
+        for ip in ips:
+            if ip and ip not in seen:
+                seen.add(ip)
+                out.append(ip)
+        return out
+
+    def _register(self, tag, client, upstream, ip="", pseudo=""):
+        with self._sess_lock:
+            self._sessions[tag] = {"room": None, "client": client, "upstream": upstream,
+                                   "ip": ip, "pseudo": pseudo, "t0": time.time()}
 
     def _unregister(self, tag):
         with self._sess_lock:
@@ -241,31 +285,44 @@ class MercuryFront(object):
         """그 방에 물린 프론트 세션을 모두 끊는다(사용자 제거 → 방이 비면 Multirole 이 닫는다)."""
         rid = int(rid)
         with self._sess_lock:
-            victims = [(t, i["client"], i["upstream"])
+            victims = [(t, i["client"], i["upstream"], i.get("ip") or "", i.get("pseudo") or "")
                        for t, i in self._sessions.items() if i.get("room") == rid]
-        for tag, client, upstream in victims:
+        for tag, client, upstream, ip, pseudo in victims:
             _close(client)
             _close(upstream)
-            self.log("[front] %s kick (room %d)" % (tag, rid))
+            self.log("[front] %s kick (room %d, %s)" % (tag, rid, ip or "?"))
+            if self.access:
+                self.access.write("kick", ip=ip, pseudo=pseudo, room=rid, why="kick")
         return len(victims)
 
     def _handle(self, client, addr):
         tag = "%s:%d" % (addr[0], addr[1])
+        pseudo = self.pseudo_ip(addr[0])
         try:
             upstream = socket.create_connection(
-                (self.st.front_target_host, self.st.front_target_port), timeout=15)
+                (self.st.front_target_host, self.st.front_target_port), timeout=15,
+                source_address=(pseudo, 0))
         except OSError as exc:
-            self.log("[front] %s upstream 실패: %s" % (tag, exc))
-            _close(client)
-            return
+            # 별칭 바인딩 실패(드묾) → 일반 연결로 폴백
+            try:
+                self.log("[front] %s 별칭 %s 실패(%s) → 기본 연결" % (tag, pseudo, exc))
+                upstream = socket.create_connection(
+                    (self.st.front_target_host, self.st.front_target_port), timeout=15)
+                pseudo = "127.0.0.1"
+            except OSError as exc2:
+                self.log("[front] %s upstream 실패: %s" % (tag, exc2))
+                _close(client)
+                return
         # create_connection 의 15초 타임아웃이 recv 까지 남아 15초 침묵하면 끊기므로 해제
         upstream.settimeout(None)
         client.settimeout(None)
         _keepalive(client)
         _keepalive(upstream)
-        self.log("[front] %s connected" % tag)
+        self.log("[front] %s connected (별칭 %s)" % (tag, pseudo))
         st = {"pending_name": None}
-        self._register(tag, client, upstream)
+        self._register(tag, client, upstream, addr[0], pseudo)
+        if self.access:
+            self.access.write("connect", ip=addr[0], pseudo=pseudo)
         threading.Thread(target=self._srv_pump, args=(upstream, client, tag, st), daemon=True).start()
         threading.Thread(target=self._watch_session, args=(client, upstream, tag, st), daemon=True).start()
         try:
@@ -274,6 +331,13 @@ class MercuryFront(object):
             self.log("[front] %s session error: %s: %s" % (tag, type(exc).__name__, exc))
         finally:
             st["done"] = True
+            info = {}
+            with self._sess_lock:
+                info = dict(self._sessions.get(tag) or {})
+            if self.access:
+                self.access.write("close", ip=info.get("ip") or "",
+                                  pseudo=info.get("pseudo") or "",
+                                  room=info.get("room"), why="closed")
             self._unregister(tag)
             _close(upstream)
             _close(client)
@@ -328,6 +392,10 @@ class MercuryFront(object):
                         rid = struct.unpack("<I", fr[3:7])[0]
                         st["room_id"] = rid
                         self._set_room(tag, rid)
+                        if self.access:
+                            self.access.write("create", ip=self.ip_of(tag),
+                                              pseudo=self.pseudo_of(tag), room=rid,
+                                              name=st.get("pending_name") or "")
                         name = st.get("pending_name")
                         key = (name or self.st.front_autoroom or "lobby").strip().lower()
                         self.rooms[key] = rid
@@ -490,6 +558,10 @@ class MercuryFront(object):
                             st["sent_join"] = True
                             st["room_id"] = rid
                             self._set_room(tag, rid)
+                            if self.access:
+                                self.access.write("join", ip=self.ip_of(tag),
+                                                  pseudo=self.pseudo_of(tag), room=rid,
+                                                  name=st.get("player") or "")
                             self.joined += 1
                             self.log("[front] %s join '%s' -> id=%d" % (tag, spec["name"], rid))
                             if st.get("bot_deck") and not st.get("bot_spawned"):
