@@ -257,13 +257,13 @@ python3 webui.py --selftest
 
 ### 서버 대전 모드에서 `duelport 7914` 를 써도 되나?
 
-**됩니다** (v1.4.0 기준). 프론트가 방 번호를 그대로 서버에 넘기므로 목록 지연과 무관합니다.
+**됩니다** (v1.4.1 기준). 프론트가 방 번호를 그대로 서버에 넘기므로 목록 지연과 무관합니다.
 
 | 기능 | 7911 직결 | 7914(프론트) |
 |---|---|---|
 | 방 만들기 / 목록에서 입장 | ✅ | ✅ |
 | 비밀번호 방 | ✅ | ✅ (v1.3.5+) |
-| 방금 만든 방에 즉시 입장 | ✅ | ✅ (v1.4.0+) |
+| 방금 만든 방에 즉시 입장 | ✅ | ✅ (v1.4.1+) |
 | 잘못된 번호 입장 | 서버 오류 | 서버 오류(새 방 안 만듦) |
 | 관전(자리 찼을 때) | ✅ | ✅ |
 | **봇 자동 호출(Notes=`bot`)** | ❌ | ✅ |
@@ -272,7 +272,7 @@ python3 webui.py --selftest
 권장: **둘 다 등록** — `duelport 7911`(서버 대전) + `duelport 7914`(LAN·관전·봇).
 7914 하나로 통일해도 동작하지만, 프론트 계층이 하나 더 끼는 만큼 장애 지점이 늘어납니다.
 
-### 로그인 — 관리자 계정 (v1.4.0+)
+### 로그인 — 관리자 계정 (v1.4.1+)
 
 - **첫 접속**하면 `관리자 계정 만들기` 화면이 뜹니다. 아이디·비밀번호를 정하면 이후 그 계정으로 로그인합니다.
 - 비밀번호는 **PBKDF2-SHA256(100k)** 해시로만 저장됩니다(`auth.json`, 평문 없음).
@@ -282,3 +282,12 @@ python3 webui.py --selftest
 - 초기화: `docker exec multirole-web python3 /app/webui.py --reset-auth` → 다음 접속에 계정 만들기 화면
 - `MR_AUTH` = `both`(기본) · `account`(토큰 비활성) · `token`(구방식)
 - ⚠ `auth.json` 은 **저장소·릴리스에 올리지 않습니다**(`.gitignore`). 로컬 백업에만 보관하세요. HTTPS 권장.
+
+### 백업 (운영자)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\backup.ps1 -AuthFile <auth.json 경로>
+```
+- `_backups\<버전>\` 에 소스 ZIP(구조 유지) + 문서 + `SHA256.txt`
+- **`auth.json` 은 ZIP 밖에만** 저장합니다(로컬 백업 전용, git·릴리스 제외)
+- `auth.json` 받는 법: `docker exec multirole-web cat /dyxel/multirole/auth.json > auth.json` (root 권한)

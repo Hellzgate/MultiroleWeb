@@ -1,3 +1,17 @@
+## v1.4.1 — 2026-11-07
+
+### 추가
+- **`tools/backup.ps1`** — 백업을 스크립트로 고정
+  - 소스 ZIP 은 **폴더 구조 유지**(`ZipFile.CreateFromDirectory`) · 제외: `_web_token.txt` / `front.json` / `auth.json` / `NAS-ACCESS.md`
+  - 문서(README·CHANGELOG·MANUAL·PLAYER-GUIDE·UPGRADE) 함께 복사
+  - **`auth.json` 은 ZIP 밖**(`_backups\<ver>\auth.json`)에만 보관 — 로컬 백업 전용, git·릴리스 제외
+  - `SHA256.txt` 자동 생성
+- 사용: `powershell -File .\tools\backup.ps1 [-Version 1.4.1] [-AuthFile <auth.json 경로>]`
+
+### 실측
+- v1.4.0 백업 재생성: ZIP 58 엔트리(116,535B) · `auth.json` 308B(ZIP 미포함) · SHA256 8항목
+- `--selftest` 87/87 PASS
+
 ## v1.4.0 — 2026-11-07
 
 ### 새 기능 — **관리자 계정 로그인** (웹 토큰 대신)
