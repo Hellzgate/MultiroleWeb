@@ -281,11 +281,15 @@ class MercuryFront(object):
                         else:
                             self.log("[front] %s join 실패 msg=%d code=0x%08X · 방 '%s' 사라짐 → 새로 생성"
                                      % (tag, msg, code, name))
-                            spec = st.get("spec") or RoomSpec.parse("", self.st.effective_room())
-                            try:
-                                upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
-                            except OSError:
-                                pass
+                            if st.get("server_join"):
+                                # 방 번호로 온 입장은 새 방을 만들지 않는다(클라이언트가 오류를 표시)
+                                self.log("[front] 서버모드 입장 실패 → 방 생성 안 함")
+                            else:
+                                spec = st.get("spec") or RoomSpec.parse("", self.st.effective_room())
+                                try:
+                                    upstream.sendall(build_create_game(spec, self._banlist_hash(spec)))
+                                except OSError:
+                                    pass
         except OSError as exc:
             if getattr(exc, "errno", None) != 9:          # 9 = 이미 닫힌 소켓(정상 종료 경합)
                 self.log("[front] %s server pump error: %s" % (tag, exc))
@@ -392,6 +396,7 @@ class MercuryFront(object):
                         st["spec"] = spec
                         st["pending_name"] = spec["name"]
                         st["joined"] = True
+                        st["server_join"] = bool(game_id)   # 번호로 온 입장(서버모드)
                         bot_deck = self._bot_trigger(spec["name"])
                         if bot_deck:
                             st["bot_deck"] = bot_deck
@@ -478,8 +483,9 @@ class MercuryFront(object):
         """
         index = self._live_index()
         if game_id:
-            if game_id in set(index.values()) or game_id in set(self.rooms.values()):
-                return game_id
+            # 서버 대전 모드: 클라이언트가 방 번호를 명시했으면 **그대로 신뢰**한다.
+            # (7922 목록은 2초 지연이 있어 방금 만든 방이 없을 수 있다)
+            return game_id
         text = (name or "").strip()
         if text:
             rid = self._find_room(text)
