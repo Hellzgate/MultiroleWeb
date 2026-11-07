@@ -4,6 +4,7 @@ window.MR = window.MR || {};
 MR.botPanel = {
   DATA: null,
   FILTER: '',
+  MAN_FILTER: '',
   DECK: '',
 
   load: async function () {
@@ -33,6 +34,25 @@ MR.botPanel = {
     MR.botPanel.renderRunning(d);
     MR.botPanel.renderRooms(d);
     MR.botPanel.renderDecks(d);
+    MR.botPanel.renderManual(d);
+  },
+
+  /* 「봇 부르는 법」 표 — /api/bots 의 catalog(서버 덱 + 매뉴얼 이름/난이도) */
+  renderManual: function (d) {
+    var body = MR.$('botManBody');
+    if (!body) return;
+    var q = (MR.botPanel.MAN_FILTER || '').trim().toLowerCase();
+    var rows = (d.catalog || []).filter(function (x) {
+      return !q || x.deck.toLowerCase().indexOf(q) >= 0 || (x.name || '').toLowerCase().indexOf(q) >= 0;
+    });
+    body.innerHTML = rows.map(function (x) {
+      var name = x.known ? MR.esc(x.name) : '<span class="muted">— (매뉴얼에 없음)</span>';
+      return '<tr><td><code>' + MR.esc(x.deck) + '</code></td>' +
+        '<td>' + name + '</td>' +
+        '<td>' + MR.esc(x.difficulty || '—') + '</td>' +
+        '<td><code>' + MR.esc(x.call) + '</code>' + (x.space ? ' <span class="tag">공백</span>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="muted">해당하는 덱이 없습니다.</td></tr>';
+    MR.$('botManCount').textContent = rows.length + ' / ' + (d.catalog || []).length + '개';
   },
 
   renderRunning: function (d) {
@@ -152,5 +172,9 @@ MR.botPanel = {
     };
     MR.$('botDeck').onchange = function (e) { MR.botPanel.DECK = e.target.value; };
     MR.$('botDeck').ondblclick = function () { MR.botPanel.start(); };
+    MR.$('botManFilter').oninput = function (e) {
+      MR.botPanel.MAN_FILTER = e.target.value;
+      if (MR.botPanel.DATA) MR.botPanel.renderManual(MR.botPanel.DATA);
+    };
   }
 };

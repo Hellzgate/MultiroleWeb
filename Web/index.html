@@ -185,6 +185,37 @@
         <span class="muted">기본 덱 <b id="botDefaultDeck">—</b> · 더블클릭으로도 투입됩니다</span>
       </div>
     </div>
+    <div class="card" style="margin-top:14px">
+      <h3>봇 부르는 법 — <code>b:&lt;덱&gt;</code></h3>
+      <p class="muted" style="margin:0 0 10px;line-height:1.7">
+        게임에서 방을 만들 때 <b>LAN 모드 = 비밀번호 칸</b>, <b>서버 대전 모드 = <code>Notes</code>(설명) 칸</b>에 적으면
+        그 방에 봇이 <b>자동으로 입장</b>합니다. (칸이 비면 봇이 오지 않습니다)
+      </p>
+      <table style="max-width:720px">
+        <thead><tr><th>입력</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td><code>bot</code> / <code>b</code></td><td>기본 봇 (레이즈문 AI · 덱 <code>raisemoon</code>)</td></tr>
+          <tr><td><code>b:티아라멘츠</code></td><td>그 덱의 봇 — <b>덱 이름은 대소문자 구분</b>(아래 표 그대로)</td></tr>
+          <tr><td><code>bot#1234</code></td><td>비밀번호 <b>1234</b> 인 방 + 봇</td></tr>
+          <tr><td><code>b:ABC#1234</code></td><td>덱 <code>ABC</code> + 비밀번호 1234</td></tr>
+        </tbody>
+      </table>
+      <ul class="muted" style="margin:10px 0 0;padding-left:18px;line-height:1.8">
+        <li>동시에 부를 수 있는 봇은 <b>2마리</b>까지(관리자 설정 <code>MR_BOT_MAX</code>).</li>
+        <li>내가 나가서 방이 사라지면 <b>봇도 10초 안에 자동 종료</b>됩니다.</li>
+        <li><b>봇 방은 덱 확인 안 함</b>이 자동으로 켜집니다(일반 방은 그대로 검사).</li>
+        <li>이름에 <b>공백</b>이 있는 덱도 <code>b:Rank V</code> 처럼 부를 수 있습니다.</li>
+        <li>없는 덱을 부르면 방은 만들어지고 <b>봇만 오지 않습니다</b>.</li>
+      </ul>
+      <div class="toolbar" style="margin:12px 0 6px">
+        <input type="text" id="botManFilter" placeholder="표에서 덱·봇 이름 검색" style="max-width:280px">
+        <span class="muted" id="botManCount"></span>
+      </div>
+      <div style="max-height:380px;overflow:auto">
+        <table><thead><tr><th>덱 이름</th><th>봇 이름</th><th>난이도</th><th>부르는 법</th></tr></thead>
+        <tbody id="botManBody"></tbody></table>
+      </div>
+    </div>
   </section>
 </main>
 

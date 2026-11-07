@@ -96,6 +96,8 @@ class MercuryFront(object):
         self.connections = 0
         self.created = 0
         self.joined = 0
+        self._decks = set()              # 봇 덱 이름 캐시(공백 덱 호출용, 60초)
+        self._deck_at = 0.0
 
     # -- lifecycle -------------------------------------------------------- #
     def start(self, port=None):
@@ -466,15 +468,43 @@ class MercuryFront(object):
     # 덱 이름은 대소문자를 구분하므로 **원문에서** 뽑아낸다(매칭만 무시).
     BOT_TRIGGER = re.compile(r"^(?:b|bot)(?::([A-Za-z0-9_\-]+))?$", re.IGNORECASE)
 
+    def _known_decks(self):
+        """봇 컨트롤러가 가진 덱 이름(60초 캐시). 실패하면 직전 값."""
+        now = time.time()
+        if self._deck_at and now - self._deck_at < 60.0:
+            return self._decks
+        try:
+            with urllib.request.urlopen(self.st.bot_url + "/decks", timeout=2) as r:
+                raw = r.read().decode("utf-8", "replace")
+            decks = set((json.loads(raw) or {}).get("decks") or [])
+        except Exception:                       # noqa: BLE001 — 봇 서비스가 없어도 대전은 계속
+            return self._decks
+        if decks:
+            self._decks = decks
+            self._deck_at = now
+        return self._decks
+
     def _bot_trigger(self, name):
-        """방 이름이 b / bot / b:<deck> 이면 봇 덱 이름을 돌려준다(아니면 None)."""
+        """방 이름이 b / bot / b:<deck> 이면 봇 덱 이름을 돌려준다(아니면 None).
+
+        덱 이름에 **공백**이 있는 덱(`Rank V`, `Toadally Awesome` …)은 정규식으로는
+        잡히지 않으므로, 실제 덱 목록과 대조해 한 번 더 시도한다.
+        """
         if not getattr(self.st, "bot_enabled", False):
             return None
-        m = self.BOT_TRIGGER.match((name or "").strip())
-        if not m:
+        name = (name or "").strip()
+        m = self.BOT_TRIGGER.match(name)
+        if m:
+            deck = (m.group(1) or self.st.bot_deck or "raisemoon").strip()
+        elif name.lower().startswith(("b:", "bot:")):
+            deck = name.split(":", 1)[1].strip()      # 공백 든 덱(Rank V 등)
+        else:
             return None
-        deck = (m.group(1) or self.st.bot_deck or "raisemoon").strip()
-        return deck
+        if not deck:
+            return None
+        # 대소문자만 다른 입력도 실제 덱 이름으로 맞춘다(리눅스는 파일명 대소문자 구분)
+        canon = dict((d.lower(), d) for d in self._known_decks())
+        return canon.get(deck.lower(), deck)
 
     def _spawn_bot(self, room_id, deck):
         """봇 컨트롤러에 '이 방에 붙어라' 요청(비동기, 실패해도 대전은 계속)."""

@@ -574,11 +574,39 @@ def selftest():
           and view["decks"][1]["running"] == 1,
           json.dumps(view, ensure_ascii=False)[:220])
 
+    cat = build_bots("raisemoon", "Raisemoon", True, {}, ["Tearlaments", "Rank V", "Unknown-Deck"], [])
+    by = dict((x["deck"], x) for x in cat["catalog"])
+    check("bots.catalog",
+          by["Tearlaments"]["name"] == "티아라멘츠" and by["Tearlaments"]["difficulty"] == "어려움"
+          and by["Rank V"]["space"] is True and by["Rank V"]["call"] == "b:Rank V"
+          and by["Unknown-Deck"]["known"] is False and by["Unknown-Deck"]["name"] == "—"
+          and [x["deck"] for x in cat["catalog"]] == ["Rank V", "Tearlaments", "Unknown-Deck"],
+          json.dumps(cat["catalog"], ensure_ascii=False)[:220])
+
     code, body = call("GET", "/api/bots")
     bots_body = json.loads(body.decode("utf-8", "replace") or "{}")
     check("http.bots", code == 200 and isinstance(bots_body.get("running"), list)
-          and isinstance(bots_body.get("decks"), list) and "default" in bots_body,
+          and isinstance(bots_body.get("decks"), list) and "default" in bots_body
+          and isinstance(bots_body.get("catalog"), list),
           body[:200].decode("utf-8", "replace"))
+
+    # `b:Rank V` 처럼 공백이 있는 덱 이름도 봇 호출로 인식해야 한다(프론트).
+    from .MercuryFront import MercuryFront
+
+    class _StubSettings(object):
+        bot_enabled = True
+        bot_deck = "raisemoon"
+        bot_url = "http://127.0.0.1:1"
+
+    mf = MercuryFront(_StubSettings(), lambda m: None)
+    mf._known_decks = lambda: {"Rank V", "ABC", "Tearlaments"}
+    check("front.bot-trigger",
+          mf._bot_trigger("b:Rank V") == "Rank V"
+          and mf._bot_trigger("b:ABC") == "ABC"
+          and mf._bot_trigger("b:abc") == "ABC"          # 대소문자 정규화
+          and mf._bot_trigger("bot") == "raisemoon"
+          and mf._bot_trigger("b:nope") == "nope"   # 없는 덱은 그대로 넘겨 botd 가 오류를 남긴다
+          and mf._bot_trigger("일반방") is None)
 
     httpd.shutdown()
     app.sup.shutdown()

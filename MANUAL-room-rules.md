@@ -197,8 +197,9 @@ EDOPro 는 시작할 때 `repositories\<저장소>\lflists\*.conf` 를 **자동�
 - 내가 나가서 방이 사라지면 **봇도 자동 종료**됩니다(최대 10초 내).
 - 동시에 부를 수 있는 봇은 **2마리**까지(설정 `MR_BOT_MAX`).
 - **봇 방은 덱 확인하지 않기가 자동으로 켜집니다**(`MR_BOT_NOCHECK`). 봇 덱에 서버 DB 에 없는 카드가 섞여도 시작됩니다. 일반 방은 영향 없음.
+- 웹 패널 **「봇」 탭**에 아래와 같은 표가 있고, **검색 · 방 선택 · [투입]** 버튼으로 방을 만든 뒤에도 붙일 수 있습니다.
 
-### 부를 수 있는 봇 목록 (49종)
+### 부를 수 있는 봇 목록 (서버에 있는 덱 기준 · 현재 53개)
 
 | 덱 이름 | 봇 이름 | 난이도 | 부르는 법 |
 |---|---|---|---|
@@ -215,13 +216,12 @@ EDOPro 는 시작할 때 `repositories\<저장소>\lflists\*.conf` 를 **자동�
 | `Dragun` | 붉은 눈의 드라군 | 어려움 | `b:Dragun` |
 | `Dragunity` | 드래그니티 | 보통 | `b:Dragunity` |
 | `FamiliarPossessed` | 빙의장착 | 쉬움 | `b:FamiliarPossessed` |
-| `Lucky` | 운빨망겜 | 쉬움 | `b:Lucky` |
 | `Frog` | 개구리 | 보통- | `b:Frog` |
 | `GrenMajuThunderBoarder` | 인스펙트 보더 메타비트 | 쉬움 | `b:GrenMajuThunderBoarder` |
 | `Horus` | 호루스의 흑염룡 | 보통- | `b:Horus` |
 | `Kashtira` | 크샤트리라 | 어려움 | `b:Kashtira` |
 | `LightswornShaddoldinosour` | 공룡 섀도르 라이트로드 | 어려움 | `b:LightswornShaddoldinosour` |
-| `MathMech` | 참기 | 보통 | `b:MathMech` |
+| `Mathmech` | 참기 | 보통 | `b:Mathmech` |
 | `MokeyMokey` | 일반 몬스터 투성이 | 보통- | `b:MokeyMokey` |
 | `MokeyMokeyKing` | 일반 몬스터 투성이 II | 보통- | `b:MokeyMokeyKing` |
 | `Orcust` | 오르페골 | 어려움 | `b:Orcust` |
@@ -235,7 +235,7 @@ EDOPro 는 시작할 때 `repositories\<저장소>\lflists\*.conf` 를 **자동�
 | `Swordsoul` | 천위 상검 | 어려움 | `b:Swordsoul` |
 | `ThunderDragon` | Thunder Dragon | 보통 | `b:ThunderDragon` |
 | `Tearlaments` | 티아라멘츠 | 어려움 | `b:Tearlaments` |
-| `TimeThief` | 크로노다이버 | 보통 | `b:TimeThief` |
+| `Timethief` | 크로노다이버 | 보통 | `b:Timethief` |
 | `Toadally Awesome` | 떡 깨구리 | 보통 | `b:Toadally Awesome` |
 | `Trickstar` | 트릭스터 | 어려움 | `b:Trickstar` |
 | `PureWinds` | WW(윈드 위치) 가스타 | 보통- | `b:PureWinds` |
@@ -251,8 +251,15 @@ EDOPro 는 시작할 때 `repositories\<저장소>\lflists\*.conf` 를 **자동�
 | `OldSchool` | [AI] OldSchool (port) | 보통 | `b:OldSchool` |
 | `NekrozRules` | [AI] Nekroz (편집 가능) | 보통 | `b:NekrozRules` |
 | `SunGodTimeWizard` | AI_SunGodTimeWizard | 어려움 | `b:SunGodTimeWizard` |
+| `CyberDragon` | 사이버 드래곤 | — | `b:CyberDragon` |
+| `Gravekeeper` | 묘지기의 | — | `b:Gravekeeper` |
+| `Lightsworn` | 라이트로드 | — | `b:Lightsworn` |
+| `[HealingJAM]` | (실행기 없음 · 일반 엔진) | — | `b:[HealingJAM]` |
+| `[ImaginaryArk]` | (실행기 없음 · 일반 엔진) | — | `b:[ImaginaryArk]` |
 
-> 덱 이름은 **대소문자를 구분**합니다(표의 `덱 이름` 칸 그대로). 없는 덱을 부르면 방은 만들어지고 봇만 오지 않습니다.
-> 난이도는 `bots.json` 의 difficulty 값(0 쉬움 ~ 3 어려움)을 옮긴 것입니다.
+> 덱 이름은 대소문자를 구분합니다(표의 `덱 이름` 칸 그대로). **대소문자가 달라도 실제 덱 이름으로 맞춰 줍니다.**
+> 이름에 **공백**이 있는 덱(`Rank V`, `Toadally Awesome` …)도 `b:Rank V` 처럼 부를 수 있습니다.
+> 없는 덱을 부르면 방은 만들어지고 **봇만 오지 않습니다**(`b:Lucky` 는 덱 파일이 없어 봇이 오지 않으므로 표에서 뺐습니다).
+> 난이도는 `bots.json` 의 difficulty 값을 옮긴 것입니다(정보가 없는 덱은 `—`).
 > 봇 상태는 웹 패널 「LAN 방 기본값」 카드 하단 상태줄(`봇 0/2 실행 중 (덱 53개)`)에서 확인합니다.
 > 설정: `MR_BOT_URL`(컨트롤러 주소) · `MR_BOT_MAX`(동시 봇 수) · `MR_BOT_DECK`(기본 덱) · `MR_BOT_NAME`(봇 이름)
