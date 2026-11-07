@@ -349,6 +349,18 @@ class MercuryFront(object):
                             name_u, notes = "", ""
                         st["pending_name"] = notes or name_u or None
                         st["server_create"] = True
+                        # 서버모드에서도 봇 호출: Notes(또는 Host Name)가 bot / b:<덱>
+                        bot_deck = self._bot_trigger(notes) or self._bot_trigger(name_u)
+                        if bot_deck:
+                            st["bot_deck"] = bot_deck
+                            st["bot_spawned"] = False
+                            self.log("[front] 봇 트리거(서버모드) '%s' → deck=%s"
+                                     % (st["pending_name"] or "", bot_deck))
+                            if getattr(self.st, "bot_nocheck", False):
+                                buf = bytearray(fr)
+                                buf[3 + 7] = 1              # HostInfo.dontCheckDeckContent
+                                fr = bytes(buf)
+                                self.log("[front] 봇 방(서버모드) → 덱 확인하지 않기 ON")
                         upstream.sendall(fr)
                         self.log("[front] 서버모드 방 생성 요청 '%s'" % (st["pending_name"] or ""))
                         continue

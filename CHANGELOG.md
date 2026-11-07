@@ -1,3 +1,15 @@
+## v1.3.6 — 2026-11-07
+
+### 새 기능
+- **서버 대전 모드에서도 봇 호출**: 방 만들기 창의 **`Notes`(설명)** (또는 `Host Name`)에 `bot` / `b:<덱>` 을 적으면
+  그 방에 WindBot 이 입장한다. `Notes` 가 비면 호출되지 않는다(방 이름이 없으므로).
+  - 프론트가 `CREATE_GAME` 을 통과시킬 때 Notes 를 읽어 트리거하고, `dontCheckDeckContent` 도 1 로 맞춘다(봇 방 규칙).
+- 문서: `PLAYER-GUIDE.md` §5 에 **모드별 입력 위치 표**, `MANUAL-room-rules.md` §9, 패널 도움말 ⑥ 갱신
+
+### 실측
+- 서버모드 생성(`Notes='bot'`) → +2초 `users=['SrvHost','Raisemoon']`, `no_check=True`
+- LAN 모드(`bot`) 기존 동작 유지 · `--selftest` 79/79 PASS
+
 ## v1.3.5 — 2026-11-07
 
 ### 수정 (서버 대전 모드로 `duelport 7914` 를 쓸 때)
