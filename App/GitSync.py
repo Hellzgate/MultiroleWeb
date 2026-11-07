@@ -236,7 +236,13 @@ class SyncState(object):
 # 갱신 실행
 # --------------------------------------------------------------------------- #
 def _read_log_since(path, offset, max_bytes=65536):
-    """로그 파일의 `offset` 이후 구간을 줄 단위로 (오프셋은 파일이 줄면 0 으로 재시작)."""
+    """로그 파일의 `offset` 이후 구간을 줄 단위로.
+
+    - 파일이 줄었으면(회전) 처음부터 읽는다.
+    - `offset` 이 **줄 중간**이면 그 줄의 나머지는 버린다. 자식이 줄을 늦게 flush 해서
+      앞 줄의 꼬리만 걸리면 "Finished updating." 이 "Webhook triggered." 보다 **앞에**
+      보이는 현상이 실측됐기 때문이다.
+    """
     try:
         size = os.path.getsize(path)
     except OSError:
@@ -247,8 +253,16 @@ def _read_log_since(path, offset, max_bytes=65536):
         offset = size - max_bytes
     try:
         with io.open(path, "rb") as f:
-            f.seek(offset)
-            raw = f.read()
+            if offset > 0:
+                f.seek(offset - 1)
+                prev = f.read(1)
+                f.seek(offset)
+                raw = f.read()
+                if prev not in (b"", b"\n"):            # 줄 중간에서 시작 → 앞 조각 버림
+                    cut = raw.find(b"\n")
+                    raw = raw[cut + 1:] if cut >= 0 else b""
+            else:
+                raw = f.read()
     except OSError:
         return []
     return raw.decode("utf-8", "replace").splitlines()
@@ -262,17 +276,30 @@ def _log_size(path):
 
 
 def git_log_lines(lines, limit=12):
-    """자식 로그에서 git repo 관련 줄만 추려 메시지 부분만 남긴다."""
+    """자식 로그에서 git repo 관련 줄만 추려 메시지 부분만 남긴다.
+
+    - 첫 `Webhook triggered.` **이전** 줄은 이전 갱신의 잔여분이므로 버린다(순서 뒤섞임 방지).
+      단 그 줄이 창에 없으면(로그 flush 지연) 원래대로 전부 본다.
+    - 같은 메시지가 반복되면 한 번만 남긴다(재시도 시 중복).
+    """
+    start = 0
+    for idx, line in enumerate(lines):
+        if GIT_LOG_SERVICE in line and "Webhook triggered" in line:
+            start = idx
+            break
+
     picked = []
-    for line in lines:
+    seen = set()
+    for line in lines[start:]:
         if GIT_LOG_SERVICE not in line:
             continue
         if "[Level:Debug]" in line:
             continue
         msg = line.split("] ")[-1].strip() if "]" in line else line.strip()
         msg = _TS_RE.split(msg)[0].strip()          # 자식이 개행 없이 이어 쓴 경우 정리
-        if not msg:
+        if not msg or msg in seen:
             continue
+        seen.add(msg)
         picked.append({"error": "[Level:Error]" in line, "text": msg})
         if len(picked) >= limit:
             break

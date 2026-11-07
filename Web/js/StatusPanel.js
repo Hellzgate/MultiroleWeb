@@ -53,7 +53,9 @@ MR.statusPanel = {
                 : (r.changed ? '<span class="tag warn">갱신됨</span>' : '<span class="tag ok">변경 없음</span>')) +
         (r.changed && r.from ? ' <code>' + MR.esc(r.from) + ' → ' + MR.esc(r.to || '?') + '</code>'
                              : (r.head ? ' <code>' + MR.esc(r.head) + '</code>' : '')) +
-        ' <span class="muted">' + (r.commitCount || 0) + ' 커밋 · ' + (r.fileCount || 0) + ' 파일 · ' +
+        ' <span class="muted">' + (r.changed
+            ? (r.commitCount || 0) + ' 커밋 · ' + (r.fileCount || 0) + ' 파일 · '
+            : (failed ? '' : '이미 최신 · ')) +
         MR.statusPanel.secs(r.durationMs) + '</span></div>';
 
       var sub = '<div class="sync-sub">' + MR.esc(r.at || '') + '</div>';
@@ -83,7 +85,7 @@ MR.statusPanel = {
       }
 
       var logLines = '';
-      if (r.log && r.log.length) {
+      if (failed && r.log && r.log.length) {
         logLines = '<pre class="sync-log">' + r.log.map(function (x) {
           return (x.error ? '! ' : '· ') + x.text;
         }).map(MR.esc).join('\n') + '</pre>';

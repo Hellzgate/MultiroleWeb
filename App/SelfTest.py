@@ -172,6 +172,32 @@ def selftest():
     picked = git_log_lines(sample_log)
     check("sync.log-parse", len(picked) == 2 and picked[1]["error"] and "boom" in picked[1]["text"])
 
+    # 로그 창이 **줄 중간**에서 시작하면 앞 조각은 버린다(순서 뒤섞임 방지)
+    from .GitSync import _read_log_since
+
+    bound = os.path.join(tmp, "logs", "boundary.log")
+    first = "[a] [Service:GitRepository] [Level:Info] Finished updating.\n"
+    with open(bound, "w", encoding="utf-8") as f:
+        f.write(first)
+    mid = len(first) - len("updating.\n")
+    with open(bound, "a", encoding="utf-8") as f:
+        f.write("[b] [Service:GitRepository] [Level:Info] Webhook triggered.\n")
+    window = git_log_lines(_read_log_since(bound, mid))
+    check("sync.log-boundary",
+          len(window) == 1 and "Webhook triggered" in window[0]["text"],
+          str(window))
+
+    # 첫 'Webhook triggered.' 이전 줄은 잔여분으로 보고 버린다 + 중복 제거
+    stale = [
+        "[a] [Service:GitRepository] [Level:Info] Finished updating.",
+        "[a] [Service:GitRepository] [Level:Info] Webhook triggered.",
+        "[a] [Service:GitRepository] [Level:Info] Webhook triggered.",
+        "[a] [Service:GitRepository] [Level:Info] Finished updating.",
+    ]
+    got = git_log_lines(stale)
+    check("sync.log-order", len(got) == 2 and got[0]["text"] == "Webhook triggered."
+          and got[1]["text"] == "Finished updating.", str([x["text"] for x in got]))
+
     changed_files, changed_total = files_by_mtime(repo_dir, 0)
     check("sync.mtime-files", changed_total >= 2 and bool(changed_files)
           and changed_files[0]["status"] == "M")
