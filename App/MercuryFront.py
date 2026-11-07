@@ -505,8 +505,9 @@ class MercuryFront(object):
         if not self.st.front_debug:
             return
         if typ in (0x11, 0x12) and len(body) >= 4:
-            self.log("[front] %s %s %s len=%d id=%d"
-                     % (tag, arrow, name, len(fr), struct.unpack("<I", body[:4])[0]))
+            off = 0 if typ == 0x11 else 4        # CREATE_GAME: body[0:4] / JOIN: body[4:8]
+            rid = struct.unpack("<I", body[off:off + 4])[0] if len(body) >= off + 4 else 0
+            self.log("[front] %s %s %s len=%d id=%d" % (tag, arrow, name, len(fr), rid))
         else:
             self.log("[front] %s %s %s len=%d" % (tag, arrow, name, len(fr)))
 
@@ -755,7 +756,12 @@ class MercuryFront(object):
 
         def worker():
             time.sleep(2.0)
-            if st.get("joined") or st.get("closed"):
+            # 이미 방에 들어갔거나(서버모드 생성 포함) 세션이 끝났으면 개입하지 않는다.
+            # (관측: 서버모드 호스트/봇에게 'lobby' JOIN 을 대신 보내 서버가 ERROR 65 +
+            #  DUEL_END 를 돌려주고, 클라이언트 방 화면이 어긋났다)
+            if (st.get("joined") or st.get("closed") or st.get("done")
+                    or st.get("sent_join") or st.get("server_create")
+                    or st.get("created_here") or st.get("room_id")):
                 return
             # JOIN 을 안 보내는 클라이언트끼리 **같은 방에서 만나도록** 고정 이름을 쓴다.
             spec = RoomSpec.parse("", self.st.effective_room())

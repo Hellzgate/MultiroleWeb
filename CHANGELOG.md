@@ -1,3 +1,27 @@
+## v1.7.3 — 2026-11-07
+
+### 수정 — autocreate 가 서버모드 방에 끼어들어 ERROR/DUEL_END 를 보내던 문제
+실사용 로그(20:31:41~46, 사용자가 일부러 봇방을 만들고 나간 판):
+```
+20:31:42 [front] 127.0.0.1:48840 join 'lobby' -> id=1          ← 봇 세션에 대신 JOIN
+20:31:42 [front] 127.0.0.1:48840 -> ERROR len=231 msg=55
+20:31:43 [front] 192.168.0.1:12524 -> ERROR len=331 msg=65 code=0x0F000000
+20:31:43 [front] 192.168.0.1:12524 autocreate 'lobby' [lobby] (JOIN 없음 → 대신 개설)
+```
+- `_arm_autocreate` 의 대기 스레드가 2초 뒤 **`joined`/`closed` 만** 확인했다.
+- 서버모드 호스트는 `CREATE_GAME` 을 쓰고(JOIN 없음), 봇은 **방 번호 JOIN** 을 쓰므로 둘 다 `joined` 가 서지 않았다
+  → 프론트가 **`lobby` JOIN/개설을 대신 전송** → 서버가 **ERROR(msg 65) + DUEL_END + WATCH_CHANGE** 로 응답
+  → 클라이언트 방 화면이 어긋나 **버튼이 먹지 않는 것처럼** 보였다.
+- 수정: `sent_join` · `server_create` · `created_here` · `room_id` · `done` 이면 **autocreate 를 하지 않는다.**
+- 부수: JOIN 프레임 로그의 `id=` 가 `body[0:4]`(version+0xAABB 매직)를 찍어 오해를 유발 → **`body[4:8]`**(실제 방 번호)로 정정.
+
+### 검증
+- `--selftest` **120/120**
+- 합성 서버모드 호스트(PLAYER_INFO+CREATE_GAME, 14초 관찰): 수신 `0x11 0x12 0x20 0x21 0x13` · **ERROR 0 · DUEL_END 0**
+  · 로그에 `autocreate` 0건 → **개입 없음**
+- 사용자 실판 재확인: 20:31:41 생성 → 20:31:46 퇴장 = **방 수명 5초**, 퇴장 즉시 폐쇄, **watchdog/stale 0건**
+  (v1.7.2 의 로그 IO 분리로 펌프가 `client closed` 로 정상 종료)
+
 ## v1.7.2 — 2026-11-07
 
 ### 근본 원인 확정 — **네트워크 스레드가 로그 파일 IO 에 막혀** 방이 얼어붙었다
