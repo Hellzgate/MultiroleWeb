@@ -7,6 +7,7 @@ import sys
 import threading
 
 from . import VERSION
+from .AuthStore import AuthStore
 from .Context import CTX
 from .DuelProxy import DuelProxy
 from .MercuryFront import MercuryFront
@@ -21,6 +22,7 @@ class App(object):
     def __init__(self, st):
         self.st = st
         self.sup = Supervisor(st)
+        self.auth = AuthStore(st.auth_path)
         self.proxy = DuelProxy(st, self.sup.log)
         # 기록용: 외부 서버로 그대로 흘려보내며 양방향 프레임을 로그로 남긴다
         self.proxy2 = DuelProxy(st, self.sup.log, label="relay", drop_types=set(),

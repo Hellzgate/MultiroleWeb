@@ -119,6 +119,31 @@ def selftest():
     errors, _ = validate(bad)
     check("config.validate.port-clash", bool(errors), str(errors[:2]))
 
+    # -- 관리자 계정 (AuthStore) ------------------------------------------ #
+    from .AuthStore import AuthStore
+
+    as_path = os.path.join(tmp, "auth.json")
+    store = AuthStore(as_path)
+    check("auth.empty", not store.exists())
+    check("auth.create", store.create("admin", "pw1234") is None and store.exists()
+          and store.data.get("id") == "admin" and "pw1234" not in json.dumps(store.data))
+    ok1, _ = store.check("admin", "pw1234")
+    ok2, _ = store.check("admin", "wrong")
+    check("auth.check", ok1 and not ok2)
+    sess = store.issue()
+    check("auth.session", store.verify_session(sess) and not store.verify_session("a.b.c"))
+    check("auth.password-change",
+          store.change_password("pw1234", "newpass") is None
+          and store.check("admin", "newpass")[0]
+          and not store.check("admin", "pw1234")[0])
+    for _ in range(5):
+        store.note_fail("1.2.3.4")
+    check("auth.lockout", store.locked("1.2.3.4") > 0)
+    store.clear_fails("1.2.3.4")
+    check("auth.unlock", store.locked("1.2.3.4") == 0)
+    store.reset()
+    check("auth.reset", not store.exists())
+
     # -- 방 이름/규칙 파서 (RoomSpec) ------------------------------------- #
     from . import RoomSpec
 

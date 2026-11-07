@@ -6,7 +6,9 @@ __pycache__/
 # 로컬 실행 흔적
 logs/
 front.json
-front.json.bak-*
+auth.json
+front.json
+auth.json.bak-*
 *.tmp
 
 # 비밀값 (절대 커밋 금지)

@@ -15,7 +15,9 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import VERSION, WEB_DIR
-from .Auth import login_cookie_headers, login_page, matches, token_ok
+from .Auth import (clear_cookie_headers, cookie_value, login_cookie_headers, login_page,
+                   matches, session_cookie_headers, setup_page, token_ok)
+from .AuthStore import COOKIE as SESSION_COOKIE, SESSION_TTL
 from .ConfigSchema import KEY_DOCS, is_int, validate
 from .ConfigStore import ConfigError, load_config, save_config
 from .Context import CTX
@@ -90,7 +92,21 @@ class Handler(BaseHTTPRequestHandler):
         return CTX.get()
 
     def _authed(self):
-        return token_ok(self.headers, self.app.st.token)
+        """①세션 쿠키(관리자 계정) ②비상용 토큰. MR_AUTH 로 모드 결정."""
+        st = self.app.st
+        mode = getattr(st, "auth_mode", "both")
+        auth = self.app.auth
+        if mode == "token":
+            return token_ok(self.headers, st.token)          # 토큰 없으면 통과(기존 동작)
+        if st.token and token_ok(self.headers, st.token):
+            return True
+        has_account = bool(auth and auth.exists())
+        if mode in ("both", "account") and has_account:
+            if auth.verify_session(cookie_value(self.headers, SESSION_COOKIE)):
+                return True
+        if mode != "account" and not st.token and not has_account:
+            return True                                       # 인증 미설정(LAN 전용)
+        return False
 
     def _guard(self):
         if self._authed():
@@ -159,7 +175,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if path in ("/", "/index.html"):
             if not self._authed():
-                self._send(200, login_page(), "text/html; charset=utf-8")
+                st = self.app.st
+                need_setup = (getattr(st, "auth_mode", "both") != "token"
+                              and self.app.auth is not None and not self.app.auth.exists())
+                self._send(200, setup_page() if need_setup else login_page(),
+                           "text/html; charset=utf-8")
                 return
             if qs.get("raw"):
                 if not self._serve_static("index.html"):
@@ -264,6 +284,15 @@ class Handler(BaseHTTPRequestHandler):
             self._lflists_zip()
             return
 
+        if path == "/api/account":
+            st = self.app.st
+            auth = self.app.auth
+            self._json({"mode": getattr(st, "auth_mode", "both"),
+                        "hasAccount": bool(auth and auth.exists()),
+                        "id": (auth.data or {}).get("id") if auth else None,
+                        "tokenEnabled": bool(st.token) and st.auth_mode != "account"})
+            return
+
         if path == "/api/rooms":
             st = self.app.st
             rooms = []
@@ -345,17 +374,82 @@ class Handler(BaseHTTPRequestHandler):
     def route_post(self):
         path = urllib.parse.urlparse(self.path).path
 
+        if path == "/api/setup":
+            auth = self.app.auth
+            if auth is None or auth.exists():
+                self._json({"error": "이미 계정이 있습니다"}, 409)
+                return
+            body = self._read_body().decode("utf-8", "replace")
+            form = urllib.parse.parse_qs(body)
+            admin_id = (form.get("id") or [""])[0]
+            pw = (form.get("pw") or [""])[0]
+            pw2 = (form.get("pw2") or [pw])[0]
+            if pw != pw2:
+                self._send(400, setup_page("비밀번호 확인이 일치하지 않습니다."), STATIC_TYPES[".html"])
+                return
+            err = auth.create(admin_id, pw)
+            if err:
+                self._send(400, setup_page(err), STATIC_TYPES[".html"])
+                return
+            self._log("admin account created: %s" % auth.data.get("id"))
+            self._send(302, b"", "text/plain",
+                       session_cookie_headers(auth.issue(), SESSION_TTL))
+            return
+
         if path == "/api/login":
             body = self._read_body().decode("utf-8", "replace")
             form = urllib.parse.parse_qs(body)
+            st = self.app.st
+            auth = self.app.auth
+            ip = self.client_address[0] if self.client_address else "?"
+            # ① 관리자 계정 로그인
+            admin_id = (form.get("id") or [""])[0]
+            pw = (form.get("pw") or [""])[0]
+            if admin_id and auth is not None and auth.exists():
+                wait = auth.locked(ip)
+                if wait > 0:
+                    self._send(429, login_page("너무 많이 틀렸습니다. %d초 뒤 다시 시도하세요." % wait),
+                               STATIC_TYPES[".html"])
+                    return
+                ok, msg = auth.check(admin_id, pw)
+                if ok:
+                    auth.clear_fails(ip)
+                    self._log("login ok: %s" % admin_id)
+                    self._send(302, b"", "text/plain",
+                               session_cookie_headers(auth.issue(), SESSION_TTL))
+                else:
+                    auth.note_fail(ip)
+                    self._log("login failed: %s (%s)" % (admin_id, ip))
+                    self._send(403, login_page(msg), STATIC_TYPES[".html"])
+                return
+            # ② 비상용 토큰 로그인
             given = (form.get("token") or [""])[0]
-            if matches(given, self.app.st.token):
+            if getattr(st, "auth_mode", "both") != "account" and matches(given, st.token):
                 self._send(302, b"", "text/plain", login_cookie_headers(given))
             else:
-                self._send(403, login_page("토큰이 올바르지 않습니다."), STATIC_TYPES[".html"])
+                self._send(403, login_page("아이디 또는 비밀번호가 올바르지 않습니다."),
+                           STATIC_TYPES[".html"])
+            return
+
+        if path == "/api/logout":
+            self._send(302, b"", "text/plain", clear_cookie_headers())
             return
 
         if not self._guard():
+            return
+
+        if path == "/api/password":
+            auth = self.app.auth
+            try:
+                req = json.loads(self._read_body().decode("utf-8") or "{}")
+            except ValueError:
+                req = {}
+            err = auth.change_password(req.get("old") or "", req.get("new") or "")
+            if err:
+                self._json({"error": err}, 400)
+                return
+            self._log("admin password changed")
+            self._json({"ok": True})
             return
 
         if path == "/api/restart":

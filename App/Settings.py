@@ -129,6 +129,10 @@ class Settings(object):
         # 우선순위: BASE_DEFAULTS < 환경변수(MR_ROOM_*) < front.json(웹 패널)
         persist_dir = os.path.dirname(self.config_persist) if self.config_persist else self.base
         self.front_json = os.environ.get("MR_FRONT_JSON") or os.path.join(persist_dir, "front.json")
+        # 관리자 계정(auth.json). 비밀번호는 PBKDF2 해시만 저장
+        self.auth_path = os.environ.get("MR_AUTH_FILE") or os.path.join(persist_dir, "auth.json")
+        # both(기본) | account | token
+        self.auth_mode = (os.environ.get("MR_AUTH") or "both").strip().lower()
         self.room_defaults = _env_room_defaults()
         self.room_overrides = {}
         self.load_room_overrides()

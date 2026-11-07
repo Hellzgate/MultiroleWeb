@@ -38,5 +38,31 @@ MR.header = {
       });
     };
     MR.$('btnRestart').onclick = function () { MR.configForm.restart(); };
+    var lo = MR.$('btnLogout'); if (lo) lo.onclick = function () { MR.header.logout(); };
+    var pw = MR.$('btnPw'); if (pw) pw.onclick = function () { MR.header.changePassword(); };
   }
+};
+
+/* 로그아웃 / 비밀번호 변경 */
+MR.header.logout = async function () {
+  await MR.api('POST', '/api/logout', {});
+  location.href = '/';
+};
+
+MR.header.changePassword = function () {
+  var html = '<input id="pwOld" type="password" placeholder="현재 비밀번호" style="width:100%;margin-bottom:6px">' +
+             '<input id="pwNew" type="password" placeholder="새 비밀번호 (4자 이상)" style="width:100%;margin-bottom:6px">' +
+             '<input id="pwNew2" type="password" placeholder="새 비밀번호 확인" style="width:100%">';
+  MR.confirmBox('비밀번호 변경', html, '변경', async function () {
+    var o = MR.$('pwOld'), n = MR.$('pwNew'), n2 = MR.$('pwNew2');
+    if (!o || !n || !n2) return;
+    if (n.value !== n2.value) { alert('새 비밀번호 확인이 다릅니다'); return; }
+    var r = await MR.api('POST', '/api/password', { old: o.value, new: n.value });
+    if (r.status === 200 && r.data && r.data.ok) {
+      alert('변경되었습니다. 다시 로그인하세요.');
+      MR.header.logout();
+    } else {
+      alert('실패: ' + JSON.stringify((r.data && r.data.error) || r.status));
+    }
+  });
 };
