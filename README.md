@@ -3,7 +3,7 @@
 `dyxel/multirole:v1.1.0` 위에 **웹 관리 패널**을 얹은 이미지입니다.
 공식 이미지의 `area-zero.sh`(감독 루프)를 우리 파이썬 슈퍼바이저가 대체합니다.
 
-> **현재 버전 v1.3.0** — 변경 내역은 [`CHANGELOG.md`](CHANGELOG.md)
+> **현재 버전 v1.3.1** — 변경 내역은 [`CHANGELOG.md`](CHANGELOG.md)
 > v1.2.0 핵심: **머큐리 프론트(7914)** 로 EDOPro LAN / MDPro4 같은 방 이름 기반 클라이언트를
 > Multirole 방으로 연결, **비밀번호 칸 = 방 이름·규칙**, **금지/제한 목록 선택**,
 > 초보자용 [`MANUAL-room-rules.md`](MANUAL-room-rules.md)
