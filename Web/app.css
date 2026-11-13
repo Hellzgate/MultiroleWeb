@@ -1,27 +1,32 @@
 /* Multirole Web — 공통 스타일
    방향: 서버룸의 계기판. 무채색 흑연 램프 + 청록 강조 1색.
    원칙: 크롬은 조용하게, 색은 상태(살아있음)와 지금 눌러야 할 것에만. */
-:root{
-  /* 흑연 램프(살짝 차가운 회색) */
-  --bg:#0e1013;         /* 페이지 */
-  --bg2:#15181d;        /* 카드 */
-  --bg3:#1b1f26;        /* 올라온 면 */
-  --bg4:#21262e;        /* hover */
-  --line:rgba(255,255,255,.07);
-  --line2:rgba(255,255,255,.14);
-  /* 글자 3역할 */
-  --fg:#e8ebf0;
-  --fg2:#a6aebc;
-  --muted:#737b8a;
-  /* 강조 1색(청록) — 활성 탭·포커스·상태 점 */
-  --acc:#6fd3c3;
-  --acc-dim:rgba(111,211,195,.14);
-  /* 의미색은 상태 점에만 */
-  --ok:#5ecf9b;
-  --warn:#e3b341;
-  --err:#ef8f8f;
+/* 테마: html[data-theme="dark"|"light"] (기본은 OS 설정).
+   color-scheme 을 테마별로 선언해야 브라우저 '강제 다크'가 페이지를 다시 뒤집지 않는다. */
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0e1013; --bg2:#16191f; --bg3:#1e222a; --bg4:#262b34;
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
+  --fg:#e8ebf0; --fg2:#aab2c0; --muted:#7f8795;
+  --acc:#6fd3c3; --acc-dim:rgba(111,211,195,.14);
+  --ok:#5ecf9b; --warn:#e3b341; --err:#ef8f8f;
+  --btnp-bg:#e8ebf0; --btnp-bg-hover:#ffffff; --btnp-fg:#12151a; --btnp-border:#e8ebf0;
+  --code-bg:#0a0c11; --code-fg:#c8d0dd;
+  --shadow:0 24px 60px rgba(0,0,0,.5);
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#f4f5f8; --bg2:#ffffff; --bg3:#f2f4f7; --bg4:#e8ebf0;
+  --line:rgba(16,20,28,.08); --line2:rgba(16,20,28,.16);
+  --fg:#141821; --fg2:#525b6b; --muted:#7b8494;
+  --acc:#0f766e; --acc-dim:rgba(15,118,110,.10);
+  --ok:#15803d; --warn:#b45309; --err:#b91c1c;
+  --btnp-bg:#0f766e; --btnp-bg-hover:#115e59; --btnp-fg:#ffffff; --btnp-border:#0f766e;
+  --code-bg:#f7f8fa; --code-fg:#2a3140;
+  --shadow:0 16px 40px rgba(16,20,28,.12);
   --r-sm:8px; --r-md:12px; --r-lg:14px;
 }
+:root{ --r-sm:8px; --r-md:12px; --r-lg:14px; }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{
@@ -81,8 +86,8 @@ button{
 button:hover{background:var(--bg4)}
 button:active{background:#262c35}
 button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-button.primary{background:#e8ebf0;border-color:#e8ebf0;color:#12151a;font-weight:600}
-button.primary:hover{background:#fff;border-color:#fff}
+button.primary{background:var(--btnp-bg);border-color:var(--btnp-border);color:var(--btnp-fg);font-weight:600}
+button.primary:hover{background:var(--btnp-bg-hover);border-color:var(--btnp-bg-hover)}
 button.danger{
   background:transparent;border-color:rgba(239,143,143,.35);color:var(--err);
 }
@@ -122,9 +127,10 @@ button.ok{background:transparent;border-color:rgba(94,207,155,.35);color:var(--o
 .row input[type=text]{max-width:560px}
 .hint{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}
 input[type=text],input[type=number],input[type=password],textarea,select{
-  width:100%;background:#0b0d11;border:1px solid var(--line2);border-radius:var(--r-sm);
+  width:100%;background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r-sm);
   color:var(--fg);padding:8px 10px;font:inherit;font-size:13px;
   transition:border-color .12s ease;
+  -webkit-appearance:none;appearance:none;
 }
 input[type=text]:hover,select:hover,textarea:hover{border-color:rgba(255,255,255,.22)}
 input:focus,textarea:focus,select:focus{outline:2px solid var(--acc);outline-offset:1px;border-color:transparent}
@@ -171,7 +177,7 @@ details .body{color:var(--fg2);font-size:13px;line-height:1.75;margin-top:12px}
 details .body b{color:var(--fg);font-weight:600}
 
 /* ---------- 덱 선택 목록(봇 탭) ---------- */
-.deckbox{border:1px solid var(--line2);border-radius:var(--r-sm);overflow:hidden;background:#0b0d11}
+.deckbox{border:1px solid var(--line2);border-radius:var(--r-sm);overflow:hidden;background:var(--bg3)}
 .deck-search{border-bottom:1px solid var(--line);padding:6px 8px;background:var(--bg3);display:flex;align-items:center;gap:8px}
 .deck-search input{flex:1;border:0;background:transparent;padding:5px 6px;color:var(--fg)}
 .deck-search input::placeholder{color:var(--muted)}
@@ -193,10 +199,10 @@ details .body b{color:var(--fg);font-weight:600}
 
 /* ---------- 로그 ---------- */
 pre#logbox{
-  background:#0a0c11;border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;
+  background:var(--code-bg);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;
   height:calc(100vh - 280px);min-height:320px;overflow:auto;margin:0;
   font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;
-  color:#c8d0dd;white-space:pre-wrap;word-break:break-all;
+  color:var(--code-fg);white-space:pre-wrap;word-break:break-all;
 }
 
 /* ---------- 모달 ---------- */
@@ -205,7 +211,7 @@ pre#logbox{
 .modal .box{
   background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);
   padding:24px;max-width:520px;width:100%;
-  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  box-shadow:var(--shadow);
 }
 .modal h2{margin:0 0 10px;font-size:16px;font-weight:600}
 .modal p{color:var(--fg2);font-size:13px;line-height:1.6}
@@ -225,17 +231,33 @@ pre#logbox{
 .sync-item ul.sync-list li{word-break:break-all}
 .sync-item ul.sync-list code{color:#cfd7e6}
 .sync-item pre.sync-log{
-  margin:10px 0 0;padding:10px;background:#0a0c11;border:1px solid var(--line);border-radius:6px;
+  margin:10px 0 0;padding:10px;background:var(--code-bg);border:1px solid var(--line);border-radius:6px;
   font-size:11.5px;line-height:1.55;color:#f0b4b4;white-space:pre-wrap;word-break:break-all;
   max-height:180px;overflow:auto;
 }
 
 /* ---------- 로그인 ---------- */
-.login-wrap{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center}
-.login-box{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);padding:24px}
+.login-wrap{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center}.login-box{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);padding:24px}
 .login-box h2{margin:0 0 6px;font-size:17px;font-weight:600}
 .login-box .sub{color:var(--muted);font-size:12.5px;margin:0 0 20px}
 .login-box .field{margin-bottom:12px}
 .login-box .field label{display:block;font-size:12px;color:var(--fg2);margin-bottom:6px}
 .login-box button{width:100%;margin-top:8px}
 .login-box .alt{margin-top:14px;font-size:12.5px;text-align:center}
+
+/* ---------- 고대비(강제 색상)에서는 시스템 색을 존중한다 ---------- */
+@media (forced-colors: active){
+  .card,.deckbox,input,select,textarea,pre#logbox{border-color:CanvasText}
+  button{border:1px solid ButtonText}
+  button.primary{background:Highlight;color:HighlightText;border-color:Highlight}
+  .dot{background:CanvasText}
+  .tag.ok::before,.tag.warn::before,.tag.err::before{background:CanvasText}
+  .deck-row.sel{outline:2px solid Highlight;box-shadow:none}
+}
+/* 라이트: 코드/로그 글자색 */
+:root[data-theme="light"] pre#logbox code,
+:root[data-theme="light"] .sync-item pre.sync-log{color:#8a1f1f}
+:root[data-theme="light"] .sync-item pre.sync-log{color:#8a1f1f}
+:root[data-theme="light"] .deck-row.sel{box-shadow:inset 2px 0 0 var(--acc)}
+:root[data-theme="light"] .deck-row.sel .name{color:#0b3b36}
+:root[data-theme="light"] body{background:var(--bg)}

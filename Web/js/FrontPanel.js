@@ -28,13 +28,7 @@ MR.frontPanel = {
     row.className = 'row';
     var lab = document.createElement('label');
     lab.textContent = f.label;
-    if (f.hint) {
-      var h = document.createElement('span');
-      h.className = 'muted';
-      h.style.marginLeft = '6px';
-      h.textContent = '(' + f.hint + ')';
-      lab.appendChild(h);
-    }
+    if (f.hint) lab.title = f.hint;   /* 라벨에 붙이면 줄바꿈으로 행이 흐트러진다 → 툴팁으로 */
     var wrap = document.createElement('div');
     var el;
     if (f.type === 'select') {

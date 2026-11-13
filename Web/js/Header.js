@@ -42,7 +42,24 @@ MR.header = {
     MR.$('btnRestart').onclick = function () { MR.configForm.restart(); };
     var lo = MR.$('btnLogout'); if (lo) lo.onclick = function () { MR.header.logout(); };
     var pw = MR.$('btnPw'); if (pw) pw.onclick = function () { MR.header.changePassword(); };
+    MR.header.syncThemeButton();
+    var th = MR.$('btnTheme'); if (th) th.onclick = function () { MR.header.toggleTheme(); };
   }
+};
+
+/* 라이트/다크 전환 (저장값 우선, 없으면 OS) */
+MR.header.theme = function () {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+};
+MR.header.syncThemeButton = function () {
+  var b = MR.$('btnTheme');
+  if (b) b.textContent = MR.header.theme() === 'dark' ? '라이트' : '다크';
+};
+MR.header.toggleTheme = function () {
+  var next = MR.header.theme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('mr-theme', next); } catch (e) {}
+  MR.header.syncThemeButton();
 };
 
 /* 로그아웃 / 비밀번호 변경 */

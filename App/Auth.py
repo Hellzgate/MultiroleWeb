@@ -20,8 +20,8 @@ COOKIE_NAME = "mr_auth"
 ERROR_MARK = "<!--ERR-->"
 
 STYLE = """<style>
-:root{--bg:#0e1013;--bg2:#15181d;--bg3:#1b1f26;--line:rgba(255,255,255,.07);
---line2:rgba(255,255,255,.14);--fg:#e8ebf0;--fg2:#a6aebc;--muted:#737b8a;--acc:#6fd3c3}
+:root{color-scheme:dark;--bg:#0e1013;--bg2:#16191f;--bg3:#1e222a;--line:rgba(255,255,255,.08);
+--line2:rgba(255,255,255,.16);--fg:#e8ebf0;--fg2:#aab2c0;--muted:#7f8795;--acc:#6fd3c3}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);margin:0;min-height:100vh;
 display:flex;align-items:center;justify-content:center;padding:24px;
@@ -45,6 +45,14 @@ summary::-webkit-details-marker{display:none}
 summary::before{content:"›";margin-right:6px;color:var(--muted)}
 details[open] summary::before{content:"⌄"}
 details form{background:transparent;border:0;padding:12px 0 0}
+@media (prefers-color-scheme: light){
+  :root{color-scheme:light;--bg:#f4f5f8;--bg2:#ffffff;--bg3:#f2f4f7;--line:rgba(16,20,28,.08);
+  --line2:rgba(16,20,28,.16);--fg:#141821;--fg2:#525b6b;--muted:#7b8494;--acc:#0f766e}
+  input{background:#f2f4f7}
+  button{background:#0f766e;color:#fff}
+  button:hover{background:#115e59}
+  p.err{color:#b91c1c}
+}
 </style>"""
 
 TOKEN_FORM = """<details><summary>토큰으로 들어가기 (비상용)</summary>
@@ -52,7 +60,7 @@ TOKEN_FORM = """<details><summary>토큰으로 들어가기 (비상용)</summary
 <button type="submit">토큰 로그인</button></form></details>"""
 
 LOGIN_HTML = """<!doctype html><html lang="ko"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
 <title>Multirole Web</title>""" + STYLE + """
 <div class="wrap"><form method="post" action="/api/login"><h1>Multirole Web</h1>
 <p class="sub">패널 관리자 계정으로 로그인</p>
@@ -63,7 +71,7 @@ LOGIN_HTML = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <button type="submit">로그인</button><p class="err"><!--ERR--></p></form>""" + TOKEN_FORM + """</div></html>"""
 
 SETUP_HTML = """<!doctype html><html lang="ko"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
 <title>Multirole Web — 패널 관리자 계정 만들기</title>""" + STYLE + """
 <div class="wrap"><form method="post" action="/api/setup"><h1>패널 관리자 계정 만들기</h1>
 <p class="sub">처음 한 번만 설정하고, 이후 이 계정으로 로그인합니다. 비밀번호는 해시로만 저장됩니다.</p>
