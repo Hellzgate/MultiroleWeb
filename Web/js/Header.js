@@ -8,8 +8,10 @@ MR.header = {
     MR.$('stateText').textContent = p.running ? '실행 중' : (p.want ? '중지됨' : '중지(수동)');
     MR.$('pidPill').textContent = 'PID ' + (p.pid || '—');
     MR.$('upPill').textContent = '가동 ' + (p.running ? MR.dur(p.uptime) : '—');
-    var cli = Object.keys(c).map(function (k) { return k + ':' + c[k]; }).join('  ');
-    MR.$('cliPill').textContent = '접속 ' + (Object.keys(c).length ? cli : '—');
+    var cli = Object.keys(c).filter(function (k) { return c[k]; }).map(function (k) { return k + ':' + c[k]; }).join('  ');
+    var cliEl = MR.$('cliPill');
+    cliEl.textContent = cli ? ('접속 ' + cli) : '';
+    cliEl.classList.toggle('hidden', !cli);
     MR.$('pendPill').classList.toggle('hidden', !st.config.pendingRestart);
     MR.$('btnStart').disabled = p.running;
     MR.$('btnStop').disabled = !p.running;

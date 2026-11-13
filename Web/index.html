@@ -9,11 +9,13 @@
 <body>
 <header>
   <h1>Multirole Web</h1>
-  <span class="pill"><span id="dot" class="dot"></span><span id="stateText">확인 중…</span></span>
-  <span class="pill" id="pidPill">PID —</span>
-  <span class="pill" id="upPill">가동 —</span>
-  <span class="pill" id="cliPill">접속 —</span>
-  <span class="pill hidden" id="pendPill" style="color:#f7dc9c;border-color:#7c5c11">설정 변경됨 · 재시작 필요</span>
+  <div class="hdr-meta">
+    <span class="hdr-state"><span id="dot" class="dot"></span><span id="stateText">확인 중</span></span>
+    <span id="pidPill" class="mono">PID —</span>
+    <span id="upPill" class="mono">가동 —</span>
+    <span id="cliPill" class="mono">접속 —</span>
+    <span class="hidden" id="pendPill" style="color:var(--warn)">설정 변경됨 · 재시작 필요</span>
+  </div>
   <span class="spacer"></span>
   <button id="btnStart" class="sm">시작</button>
   <button id="btnStop" class="sm">중지</button>
@@ -36,32 +38,32 @@
   <section id="tab-config">
     <div id="cfgBanner" class="banner info hidden"></div>
     <div class="card" style="margin-bottom:14px">
-      <h3>LAN 방 기본값 — 클라이언트의 <b>비밀번호 칸</b>이 방 이름/규칙이 됩니다</h3>
-      <p class="muted" style="line-height:1.7;margin:0 0 10px">
-        <code>duel</code> → 방 <b>duel</b> &nbsp;·&nbsp;
-        <code>duel#1234</code> → 방 duel + 비밀번호 1234 &nbsp;·&nbsp;
-        <code>d#1#l=4000,t=300</code> → 규칙까지 지정 &nbsp;·&nbsp;
-        <code>#l=4000</code> → 기본방 + LP 4000 &nbsp;·&nbsp; 빈칸 → 기본 방 이름<br>
-        <b>비밀번호 칸은 19자 제한</b>이라 규칙은 짧은 키를 쓰세요 —
-        <code>l</code> LP · <code>h</code> 패 · <code>d</code> 드로우 · <code>t</code> 초 · <code>b</code> 판수 ·
-        <code>m</code> 메인 · <code>x</code> 엑스트라 · <code>s</code> 사이드 · <code>r</code> MR · <code>g</code> 태그 ·
-        <code>n</code> 금제 없음(N/A) · <code>n=2026.10</code> 특정 금제,
-        <code>ocg</code>/<code>tcg</code> 는 그대로. 긴 옵션은 아래 <b>기본값</b>으로 두는 편이 좋습니다.
-      </p>
+      <h3>LAN 방 기본값</h3>
+      <details style="margin-top:0;border-top:0;padding-top:0">
+        <summary>비밀번호 칸에 적는 방 이름·규칙 문법</summary>
+        <div class="body">
+          <code>duel</code> → 방 <b>duel</b> · <code>duel#1234</code> → 방 duel + 비밀번호 1234 ·
+          <code>d#1#l=4000,t=300</code> → 규칙까지 · <code>#l=4000</code> → 기본방 + LP 4000 · 빈칸 → 기본 방 이름<br>
+          비밀번호 칸은 <b>19자 제한</b>이라 짧은 키를 씁니다 —
+          <code>l</code> LP · <code>h</code> 패 · <code>d</code> 드로우 · <code>t</code> 초 · <code>b</code> 판수 ·
+          <code>m</code> 메인 · <code>x</code> 엑스트라 · <code>s</code> 사이드 · <code>r</code> MR · <code>g</code> 태그 ·
+          <code>n</code> 금제 없음 · <code>n=2026.10</code> 특정 금제. 긴 옵션은 아래 기본값으로 두는 편이 좋습니다.
+        </div>
+      </details>
       <div id="frontForm"></div>
       <div class="toolbar" style="margin:12px 0 0">
         <button id="btnFrontSave" class="primary">적용 (즉시)</button>
         <button id="btnFrontReload">다시 읽기</button>
-        <a href="/api/lflists.zip" style="color:#7fb3f5;font-size:13px;align-self:center">📥 금지목록 파일 내려받기 (ZIP)</a>
+        <a href="/api/lflists.zip" style="font-size:13px;align-self:center">금지목록 파일 내려받기 (ZIP)</a>
         <span class="muted" id="frontHint"></span>
       </div>
       <details style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
-        <summary style="cursor:pointer;color:#bcd7f7;font-size:13px">
-          📖 방 이름·규칙 넣는 법 (초보자용, 클릭해서 펼치기)
+        <summary style="font-size:13px">
+          방 이름·규칙 넣는 법 (초보자용)
         </summary>
-        <div class="muted" style="line-height:1.9;margin-top:10px">
+        <div class="body">
           <b>① 게임에서 할 일</b> — EDOPro 「LAN + AI 대전」 → IP <code id="frontAddr">&lt;서버 주소&gt;</code>,
-          포트 <code>7914</code> → <b>비밀번호 칸</b>에 방 이름 입력 → 들어가기 → 덱 선택 → 준비.<br>
+          포트 <code>7914</code> → <b>비밀번호 칸</b>에 방 이름 입력 → 들어가기 → 덱 선택 → 준비<br>
           <b>② 비밀번호 칸을 비우면</b> 모두 <code>lobby</code> 방에서 만납니다(가장 간단).<br>
           <b>③ 여러 방</b>은 이름을 적으면 됩니다 — <code>duel</code> / <code>친구들</code>.
           비밀번호를 걸려면 <code>duel#1234</code>.<br>
@@ -98,8 +100,8 @@
         <span class="muted" id="roomBotHint"></span>
       </div>
       <details style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
-        <summary style="cursor:pointer;color:#bcd7f7;font-size:13px">
-          📋 접속 이력 (누가 · 어느 방 · 왜 끊겼나) — 최근 100건
+        <summary style="font-size:13px">
+          접속 이력 (누가 · 어느 방 · 왜 끊겼나) — 최근 100건
         </summary>
         <p class="muted" style="margin:8px 0">
           <code>logs/access.log</code> 에 JSONL 로 남습니다(20MB × 10개, 30일). 실IP + 멀티롤이 본 별칭(127.0.a.b)이 함께 기록됩니다.
@@ -145,7 +147,7 @@
     <div class="banner info hidden" id="syncBanner"></div>
     <div class="grid" id="statusGrid"></div>
     <div class="card" style="margin-top:12px">
-      <h3>저장소 (git) — 갱신은 웹훅(git fetch + reset)으로 <b>즉시</b> 반영됩니다</h3>
+      <h3>저장소 (git)</h3>
       <table><thead><tr><th>이름</th><th>HEAD</th><th>마지막 갱신</th><th>결과</th><th>경로</th><th></th></tr></thead>
       <tbody id="repoBody"></tbody></table>
     </div>
@@ -154,7 +156,7 @@
       <div id="syncResult"></div>
     </div>
     <div class="card" style="margin-top:12px">
-      <h3>데이터 파일 수 (provider)</h3>
+      <h3>데이터 파일 수</h3>
       <table><thead><tr><th>provider</th><th>파일 수</th><th>리포</th></tr></thead><tbody id="provBody"></tbody></table>
     </div>
   </section>
@@ -188,10 +190,13 @@
     </div>
     <div class="card" style="margin-bottom:14px">
       <h3>cdb 갱신 확인 <span class="muted" id="cardChangeSummary"></span></h3>
-      <p class="muted" style="margin:0 0 10px;line-height:1.7">
-        <code>databases</code> 저장소를 갱신하면 <b>자동으로 스냅샷</b>을 떠서 이전 상태와 비교합니다.
-        아래 목록이 <b>이번 갱신에서 추가·변경·삭제된 카드</b>입니다.
-      </p>
+      <details style="margin-top:0;border-top:0;padding-top:0">
+        <summary>갱신하면 자동으로 이전 상태와 비교합니다</summary>
+        <div class="body">
+          <code>databases</code> 저장소를 갱신하면 스냅샷을 떠서 직전 상태와 비교합니다.
+          아래 목록이 이번 갱신에서 추가·변경·삭제된 카드입니다.
+        </div>
+      </details>
       <div class="toolbar" style="margin:0 0 8px">
         <button id="btnCardSnapshot" class="sm">지금 스냅샷(기준 갱신)</button>
         <button id="btnCardChanges" class="sm">변경 내역 새로고침</button>
@@ -214,7 +219,7 @@
   <!-- 봇 -->
   <section id="tab-bots" class="hidden">
     <div class="toolbar">
-      <button id="btnBotRefresh" class="primary">새로고침</button>
+      <button id="btnBotRefresh">새로고침</button>
       <button id="btnBotStopAll" class="sm danger">전체 중지</button>
       <span class="muted" id="botHint"></span>
     </div>
@@ -225,49 +230,54 @@
     </div>
     <div class="card">
       <h3>새 봇 투입</h3>
-      <p class="muted" style="margin:0 0 12px;line-height:1.7">
-        게임에서 <b>방을 먼저 만든 뒤</b> 여기서 방을 고르고 덱을 선택하세요.
-        봇은 입장 → 덱 선택 → <b>준비(Ready)</b> 까지 자동입니다.
-        방이 목록에 없으면 <b>새로고침</b>을 누르세요(로비 목록은 2~3초 지연).
-      </p>
       <div class="row">
-        <label>방 <span class="muted">(번호 · 이름 · 인원)</span></label>
+        <label>방</label>
         <div><select id="botRoom"></select></div>
       </div>
       <div class="row">
-        <label>덱 <span class="muted">(이름 검색)</span></label>
-        <div>
-          <input type="text" id="botDeckSearch" placeholder="예: tear, sungod, raisemoon">
-          <select id="botDeck" size="8" style="margin-top:6px"></select>
+        <label>덱</label>
+        <div class="deckbox">
+          <div class="deck-search"><input type="text" id="botDeckSearch" placeholder="덱 이름 검색"><span class="muted" id="botDeckCount"></span></div>
+          <ul id="botDeck" class="deck-list" role="listbox" aria-label="덱 목록"></ul>
         </div>
       </div>
-      <div class="toolbar" style="margin:12px 0 0">
+      <div class="toolbar" style="margin:16px 0 0">
         <button id="btnBotStart" class="primary">투입</button>
-        <span class="muted">기본 덱 <b id="botDefaultDeck">—</b> · 더블클릭으로도 투입됩니다</span>
+        <span class="muted">기본 덱 <b id="botDefaultDeck">—</b></span>
       </div>
+      <details>
+        <summary>방이 목록에 없을 때</summary>
+        <div class="body">
+          게임에서 <b>방을 먼저 만든 뒤</b> 새로고침을 누르세요. 봇은 입장 → 덱 선택 → <b>준비</b>까지 자동입니다.
+          로비 목록은 2~3초 지연됩니다.
+        </div>
+      </details>
     </div>
-    <div class="card" style="margin-top:14px">
+    <div class="card" style="margin-top:16px">
       <h3>봇 부르는 법 — <code>b:&lt;덱&gt;</code></h3>
-      <p class="muted" style="margin:0 0 10px;line-height:1.7">
-        게임에서 방을 만들 때 <b>LAN 모드 = 비밀번호 칸</b>, <b>서버 대전 모드 = <code>Notes</code>(설명) 칸</b>에 적으면
-        그 방에 봇이 <b>자동으로 입장</b>합니다. (칸이 비면 봇이 오지 않습니다)
-      </p>
       <table style="max-width:720px">
         <thead><tr><th>입력</th><th>결과</th></tr></thead>
         <tbody>
           <tr><td><code>bot</code> / <code>b</code></td><td>기본 봇 (레이즈문 AI · 덱 <code>raisemoon</code>)</td></tr>
-          <tr><td><code>b:티아라멘츠</code></td><td>그 덱의 봇 — <b>덱 이름은 대소문자 구분</b>(아래 표 그대로)</td></tr>
+          <tr><td><code>b:티아라멘츠</code></td><td>그 덱의 봇 — 덱 이름은 대소문자 구분 (아래 표 그대로)</td></tr>
           <tr><td><code>bot#1234</code></td><td>비밀번호 <b>1234</b> 인 방 + 봇</td></tr>
           <tr><td><code>b:ABC#1234</code></td><td>덱 <code>ABC</code> + 비밀번호 1234</td></tr>
         </tbody>
       </table>
-      <ul class="muted" style="margin:10px 0 0;padding-left:18px;line-height:1.8">
-        <li>동시에 부를 수 있는 봇은 <b>2마리</b>까지(관리자 설정 <code>MR_BOT_MAX</code>).</li>
-        <li>내가 나가서 방이 사라지면 <b>봇도 10초 안에 자동 종료</b>됩니다.</li>
-        <li><b>봇 방은 덱 확인 안 함</b>이 자동으로 켜집니다(일반 방은 그대로 검사).</li>
-        <li>이름에 <b>공백</b>이 있는 덱도 <code>b:Rank V</code> 처럼 부를 수 있습니다.</li>
-        <li>없는 덱을 부르면 방은 만들어지고 <b>봇만 오지 않습니다</b>.</li>
-      </ul>
+      <details>
+        <summary>입력 위치와 제한</summary>
+        <div class="body">
+          방을 만들 때 <b>LAN 모드 = 비밀번호 칸</b>, <b>서버 대전 모드 = <code>Notes</code>(설명) 칸</b>에 적으면
+          그 방에 봇이 자동으로 입장합니다. 칸이 비면 봇이 오지 않습니다.
+          <ul style="margin:10px 0 0;padding-left:18px">
+            <li>동시에 부를 수 있는 봇은 <b>2마리</b>까지(관리자 설정 <code>MR_BOT_MAX</code>)</li>
+            <li>내가 나가서 방이 사라지면 <b>봇도 10초 안에 자동 종료</b></li>
+            <li><b>봇 방은 덱 확인 안 함</b>이 자동으로 켜집니다(일반 방은 그대로 검사)</li>
+            <li>이름에 <b>공백</b>이 있는 덱도 <code>b:Rank V</code> 처럼 부를 수 있습니다</li>
+            <li>없는 덱을 부르면 방은 만들어지고 <b>봇만 오지 않습니다</b></li>
+          </ul>
+        </div>
+      </details>
       <div class="toolbar" style="margin:12px 0 6px">
         <input type="text" id="botManFilter" placeholder="표에서 덱·봇 이름 검색" style="max-width:280px">
         <span class="muted" id="botManCount"></span>

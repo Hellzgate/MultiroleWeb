@@ -115,10 +115,6 @@ MR.statusPanel = {
     MR.header.apply(st);
     MR.$('statusTime').textContent = '갱신 ' + st.now;
 
-    var clientRows = st.clients
-      ? Object.keys(st.clients).map(function (k) { return ['포트 ' + k + ' 접속', st.clients[k] + '개']; })
-      : [['접속', 'n/a (Linux 만)']];
-
     MR.$('statusGrid').innerHTML = [
       MR.statusPanel.card('프로세스', [
         ['상태', st.process.running ? '<span class="tag ok">실행 중</span>' : '<span class="tag err">중지</span>'],
@@ -134,9 +130,19 @@ MR.statusPanel = {
         ['반영 대기', st.config.pendingRestart ? '<span class="tag warn">재시작 필요</span>' : '<span class="tag ok">적용됨</span>'],
         ['오류', st.config.error ? '<span class="tag err">' + MR.esc(st.config.error) + '</span>' : '없음']
       ]),
-      MR.statusPanel.card('접속 / 포트', clientRows.concat(st.ports.map(function (p) {
-        return ['포트 ' + p.port, p.open ? '<span class="tag ok">LISTEN</span>' : '<span class="tag err">닫힘</span>'];
-      }))),
+      MR.statusPanel.card('접속 / 포트', (function () {
+        var ports = (st.ports || []).slice();
+        var known = {};
+        ports.forEach(function (p) { known[p.port] = 1; });
+        Object.keys(st.clients || {}).forEach(function (k) {
+          var port = Number(k);
+          if (!known[port] && (st.clients[k] || 0) > 0) ports.push({ port: port, open: true });
+        });
+        return ports.map(function (p) {
+          var n = (st.clients || {})[p.port] || 0;
+          return ['포트 ' + p.port, n + ' 접속 · ' + (p.open ? '<span class="tag ok">LISTEN</span>' : '<span class="tag err">닫힘</span>')];
+        });
+      })()),
       MR.statusPanel.card('리플레이 / 코어', [
         ['리플레이 수', st.replays.count],
         ['최근 파일', MR.esc(st.replays.latest || '—')],

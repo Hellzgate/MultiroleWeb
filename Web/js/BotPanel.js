@@ -101,30 +101,33 @@ MR.botPanel = {
   },
 
   renderDecks: function (d) {
-    var sel = MR.$('botDeck');
+    var list = MR.$('botDeck');
+    if (!list) return;
     var q = MR.botPanel.FILTER.trim().toLowerCase();
     var rows = d.decks.filter(function (x) {
       return !q || x.name.toLowerCase().indexOf(q) >= 0;
     });
-    sel.innerHTML = '';
-    rows.forEach(function (x) {
-      var op = document.createElement('option');
-      op.value = x.name;
-      op.textContent = x.name + (x.running ? '  (실행 ' + x.running + ')' : '') + (x.missing ? '  [파일 없음]' : '');
-      sel.appendChild(op);
-    });
-    if (!rows.length) {
-      var none = document.createElement('option');
-      none.value = '';
-      none.textContent = '(해당하는 덱이 없습니다)';
-      sel.appendChild(none);
-    }
     var want = MR.botPanel.DECK || (d.default && d.default.deck) || '';
     var has = rows.some(function (x) { return x.name === want; });
-    if (!has && rows.length && rows[0].name) want = rows[0].name;
-    sel.value = want;
-    MR.botPanel.DECK = sel.value || '';
-    sel.size = Math.min(10, Math.max(5, rows.length || 5));
+    if (!has && rows.length) want = rows[0].name;
+    MR.botPanel.DECK = want;
+    var cnt = MR.$('botDeckCount');
+    if (cnt) cnt.textContent = rows.length + ' / ' + d.decks.length + '개';
+    if (!rows.length) {
+      list.innerHTML = '<li class="deck-empty">해당하는 덱이 없습니다</li>';
+      return;
+    }
+    list.innerHTML = rows.map(function (x) {
+      var meta = [];
+      if (x.running) meta.push('실행 ' + x.running);
+      if (x.missing) meta.push('파일 없음');
+      var sel = (x.name === want);
+      return '<li class="deck-row' + (sel ? ' sel' : '') + '" role="option" aria-selected="' + sel +
+        '" data-deck="' + MR.esc(x.name) + '">' +
+        '<span class="name">' + MR.esc(x.name) + '</span>' +
+        (meta.length ? '<span class="meta">' + MR.esc(meta.join(' · ')) + '</span>' : '') +
+        '</li>';
+    }).join('');
   },
 
   start: async function () {
@@ -170,8 +173,23 @@ MR.botPanel = {
       MR.botPanel.FILTER = e.target.value;
       if (MR.botPanel.DATA) MR.botPanel.renderDecks(MR.botPanel.DATA);
     };
-    MR.$('botDeck').onchange = function (e) { MR.botPanel.DECK = e.target.value; };
-    MR.$('botDeck').ondblclick = function () { MR.botPanel.start(); };
+    var list = MR.$('botDeck');
+    if (list) {
+      list.onclick = function (e) {
+        var row = e.target.closest ? e.target.closest('.deck-row') : null;
+        if (!row) return;
+        MR.botPanel.DECK = row.getAttribute('data-deck') || '';
+        Array.prototype.forEach.call(list.querySelectorAll('.deck-row.sel'), function (r) {
+          r.classList.remove('sel');
+          r.setAttribute('aria-selected', 'false');
+        });
+        row.classList.add('sel');
+        row.setAttribute('aria-selected', 'true');
+      };
+      list.ondblclick = function (e) {
+        if (e.target.closest && e.target.closest('.deck-row')) MR.botPanel.start();
+      };
+    }
     MR.$('botManFilter').oninput = function (e) {
       MR.botPanel.MAN_FILTER = e.target.value;
       if (MR.botPanel.DATA) MR.botPanel.renderManual(MR.botPanel.DATA);
