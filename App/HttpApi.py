@@ -33,6 +33,8 @@ STATIC_TYPES = {
     ".js": "application/javascript; charset=utf-8",
     ".svg": "image/svg+xml",
     ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".webmanifest": "application/manifest+json",
 }
 
 # 상태 탭은 디렉터리를 훑기 때문에 5초 캐시를 둔다(헤더는 /api/ping 사용).
@@ -214,8 +216,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, page, "text/html; charset=utf-8")
             return
 
-        if path == "/favicon.ico":
-            self._send(204)
+        # 아이콘은 인증 없이 (로그인 화면 탭 아이콘). ico 도 실제 파일로 응답한다.
+        if path in ("/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/favicon-512.png"):
+            if not self._serve_static(path.lstrip("/")):
+                self._send(404, "not found", "text/plain; charset=utf-8")
             return
 
         # css/js 는 인증 없이 (로그인 페이지도 같은 스타일을 쓸 수 있게)

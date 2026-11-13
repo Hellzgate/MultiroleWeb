@@ -81,6 +81,7 @@ MR.frontPanel = {
     row.className = 'row';
     var lab = document.createElement('label');
     lab.textContent = '금지/제한 목록';
+    lab.title = '방을 만들 때 이 목록으로 금지/제한을 적용합니다';
     var wrap = document.createElement('div');
     var sel = document.createElement('select');
     sel.id = 'front_banlist';
@@ -106,12 +107,6 @@ MR.frontPanel = {
     }
     sel.onchange = function () { MR.frontPanel.MODEL.banlist = sel.value; };
     wrap.appendChild(sel);
-    lab.appendChild(document.createTextNode(' '));
-    var hint = document.createElement('span');
-    hint.className = 'muted';
-    hint.style.marginLeft = '6px';
-    hint.textContent = '(방을 만들 때 이 목록으로 금지/제한 적용)';
-    lab.appendChild(hint);
     row.appendChild(lab);
     row.appendChild(wrap);
     return row;
